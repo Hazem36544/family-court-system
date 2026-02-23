@@ -1,118 +1,138 @@
-import React, { useState } from 'react';
-import { ChevronLeft, Search, User, Phone, Mail, Eye, UserPlus, Filter, Users } from 'lucide-react';
-// تأكد من المسارات الصحيحة للمكونات
+import React, { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, Search, User, UserPlus, Users, Loader2, RefreshCw } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
+import { courtAPI } from '../api'; // استيراد الـ API
+import { toast } from 'react-hot-toast';
 
 export function ParentsManagement({ onBack, onNavigate }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  
+  // State for API data
+  const [families, setFamilies] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pagination, setPagination] = useState({ pageNumber: 1, totalPages: 1, totalCount: 0 });
 
-  // Mock data - في التطبيق الحقيقي سيتم جلبها من API
-  const mockParents = [
-    {
-      id: '1',
-      name: 'أحمد محمد عبد الله',
-      parentType: 'father',
-      nationalId: '12345678901234',
-      phone: '01012345678',
-      email: 'ahmed.mohamed@email.com',
-      city: 'القاهرة',
-      address: 'مدينة نصر - شارع عباس العقاد',
-      caseId: 'CASE-2024-001',
-      username: 'parent_12345678901234',
-      registrationDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '2',
-      name: 'فاطمة حسن علي',
-      parentType: 'mother',
-      nationalId: '23456789012345',
-      phone: '01123456789',
-      email: 'fatma.hassan@email.com',
-      city: 'الجيزة',
-      address: 'الدقي - شارع التحرير',
-      caseId: 'CASE-2024-002',
-      username: 'parent_23456789012345',
-      registrationDate: '2024-01-20',
-      status: 'active'
-    },
-    {
-      id: '3',
-      name: 'محمود عبد الرحمن',
-      parentType: 'father',
-      nationalId: '34567890123456',
-      phone: '01234567890',
-      email: 'mahmoud.abdelrahman@email.com',
-      city: 'الإسكندرية',
-      address: 'سموحة - شارع فوزي معاذ',
-      caseId: 'CASE-2024-003',
-      username: 'parent_34567890123456',
-      registrationDate: '2024-02-01',
-      status: 'active'
-    },
-    {
-      id: '4',
-      name: 'سارة أحمد محمد',
-      parentType: 'mother',
-      nationalId: '45678901234567',
-      phone: '01098765432',
-      email: 'sara.ahmed@email.com',
-      city: 'القاهرة',
-      address: 'مصر الجديدة - شارع الحجاز',
-      username: 'parent_45678901234567',
-      registrationDate: '2024-02-05',
-      status: 'inactive'
-    },
-    {
-      id: '5',
-      name: 'خالد يوسف إبراهيم',
-      parentType: 'father',
-      nationalId: '56789012345678',
-      phone: '01156789012',
-      email: 'khaled.youssef@email.com',
-      city: 'الجيزة',
-      address: 'فيصل - شارع الهرم',
-      caseId: 'CASE-2024-004',
-      username: 'parent_56789012345678',
-      registrationDate: '2024-02-10',
-      status: 'active'
-    },
-    {
-      id: '6',
-      name: 'منى سعيد حسن',
-      parentType: 'mother',
-      nationalId: '67890123456789',
-      phone: '01267890123',
-      email: 'mona.saeed@email.com',
-      city: 'القاهرة',
-      address: 'المعادي - شارع 9',
-      caseId: 'CASE-2024-005',
-      username: 'parent_67890123456789',
-      registrationDate: '2024-02-15',
-      status: 'active'
+  // 1. جلب البيانات من السيرفر
+  const fetchFamilies = async (nationalIdSearch = null) => {
+    setIsLoading(true);
+    try {
+      // إعداد الباراميترز
+      const params = {
+        PageNumber: 1,
+        PageSize: 100, // نجلب عدد كبير للفلترة المحلية حالياً
+      };
+
+      // لو البحث بالرقم القومي نبعته للسيرفر
+      if (nationalIdSearch) {
+        params.NationalId = nationalIdSearch;
+      }
+
+      const response = await courtAPI.searchFamilies(params);
+      
+      if (response.data && response.data.items) {
+        setFamilies(response.data.items);
+        setPagination({
+            pageNumber: response.data.pageNumber,
+            totalPages: response.data.totalPages,
+            totalCount: response.data.totalCount
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching families:", error);
+      toast.error("حدث خطأ أثناء تحميل بيانات الأسر");
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
 
-  const filteredParents = mockParents.filter(parent => {
-    const matchesSearch = parent.name.includes(searchTerm) || 
-                          parent.nationalId.includes(searchTerm) ||
-                          parent.phone.includes(searchTerm) ||
-                          parent.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = filterType === 'all' || parent.parentType === filterType;
-    const matchesStatus = filterStatus === 'all' || parent.status === filterStatus;
-    
-    return matchesSearch && matchesType && matchesStatus;
-  });
+  // تحميل مبدئي
+  useEffect(() => {
+    fetchFamilies();
+  }, []);
 
+  // التعامل مع البحث عند الضغط على Enter أو توقف الكتابة
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+        // لو البحث أرقام فقط (رقم قومي) نكلم السيرفر
+        if (/^\d+$/.test(searchTerm) && searchTerm.length > 4) {
+            fetchFamilies(searchTerm);
+        } else if (searchTerm === '') {
+            fetchFamilies(); // إعادة تعيين
+        }
+        // لو بحث بالاسم، هنعتمد على الفلترة المحلية في الخطوة التالية
+    }, 800);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
+
+  // 2. تحويل هيكل الأسرة (Family) إلى قائمة أفراد (Parents)
+  // Flatten Families into Parents List
+  const processedParents = useMemo(() => {
+    let parentsList = [];
+
+    families.forEach(family => {
+        // معالجة الأب
+        if (family.father) {
+            parentsList.push({
+                id: family.father.id,
+                familyId: family.familyId,
+                name: family.father.fullName,
+                parentType: 'father',
+                nationalId: family.father.nationalId,
+                phone: family.father.phone || '-',
+                email: family.father.email || '-',
+                // محاولة استخراج المدينة من العنوان إذا كان بتنسيق "المدينة - العنوان"
+                city: family.father.address ? family.father.address.split('-')[0].trim() : 'غير محدد', 
+                address: family.father.address,
+                caseId: null, // القائمة لا ترجع رقم القضية حالياً
+                status: 'active' // افتراضي
+            });
+        }
+        // معالجة الأم
+        if (family.mother) {
+            parentsList.push({
+                id: family.mother.id,
+                familyId: family.familyId,
+                name: family.mother.fullName,
+                parentType: 'mother',
+                nationalId: family.mother.nationalId,
+                phone: family.mother.phone || '-',
+                email: family.mother.email || '-',
+                city: family.mother.address ? family.mother.address.split('-')[0].trim() : 'غير محدد',
+                address: family.mother.address,
+                caseId: null,
+                status: 'active'
+            });
+        }
+    });
+
+    // 3. تطبيق الفلاتر المحلية (للاسم والنوع)
+    return parentsList.filter(parent => {
+        const lowerSearch = searchTerm.toLowerCase();
+        // البحث يشمل الاسم أو الرقم القومي أو الهاتف
+        const matchesSearch = 
+            parent.name?.toLowerCase().includes(lowerSearch) || 
+            parent.nationalId?.includes(lowerSearch) ||
+            parent.phone?.includes(lowerSearch);
+        
+        const matchesType = filterType === 'all' || parent.parentType === filterType;
+        const matchesStatus = filterStatus === 'all' || parent.status === filterStatus;
+
+        return matchesSearch && matchesType && matchesStatus;
+    });
+  }, [families, searchTerm, filterType, filterStatus]);
+
+
+  // إحصائيات سريعة من البيانات المعروضة
   const stats = {
-    total: mockParents.length,
-    fathers: mockParents.filter(p => p.parentType === 'father').length,
-    mothers: mockParents.filter(p => p.parentType === 'mother').length,
-    active: mockParents.filter(p => p.status === 'active').length
+    total: processedParents.length,
+    fathers: processedParents.filter(p => p.parentType === 'father').length,
+    mothers: processedParents.filter(p => p.parentType === 'mother').length,
+    active: processedParents.filter(p => p.status === 'active').length
   };
 
   return (
@@ -132,13 +152,22 @@ export function ParentsManagement({ onBack, onNavigate }) {
                 <p className="text-sm opacity-80 mt-1">عرض وإدارة حسابات أولياء الأمور</p>
               </div>
             </div>
-            <Button
-              onClick={() => onNavigate('add-parent')}
-              className="bg-green-600 hover:bg-green-700 text-white h-11 px-6"
-            >
-              <UserPlus className="w-5 h-5 ml-2" />
-              إضافة ولي أمر
-            </Button>
+            <div className="flex gap-3">
+                <Button 
+                    onClick={() => fetchFamilies()} 
+                    variant="secondary" 
+                    className="h-11 px-4 bg-white/10 hover:bg-white/20 text-white border-0"
+                >
+                    <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button
+                onClick={() => onNavigate('add-parent')}
+                className="bg-green-600 hover:bg-green-700 text-white h-11 px-6"
+                >
+                <UserPlus className="w-5 h-5 ml-2" />
+                إضافة ولي أمر
+                </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -152,8 +181,8 @@ export function ParentsManagement({ onBack, onNavigate }) {
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-sm text-muted-foreground">إجمالي أولياء الأمور</p>
+                <p className="text-2xl font-bold">{pagination.totalCount > 0 ? pagination.totalCount * 2 : stats.total}</p> {/* تقريبي لأن كل أسرة فيها فردين */}
+                <p className="text-sm text-muted-foreground">إجمالي الأفراد</p>
               </div>
             </div>
           </Card>
@@ -206,7 +235,7 @@ export function ParentsManagement({ onBack, onNavigate }) {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="البحث بالاسم، رقم البطاقة، الجوال..."
+                  placeholder="البحث بالاسم، رقم البطاقة..."
                   className="w-full pr-10 pl-4 py-3 border border-border rounded-lg bg-background"
                 />
               </div>
@@ -249,13 +278,22 @@ export function ParentsManagement({ onBack, onNavigate }) {
                   <th className="text-right px-6 py-4 text-sm font-medium">الاسم</th>
                   <th className="text-right px-6 py-4 text-sm font-medium">رقم البطاقة</th>
                   <th className="text-right px-6 py-4 text-sm font-medium">المدينة</th>
-                  <th className="text-right px-6 py-4 text-sm font-medium">رقم القضية</th>
+                  <th className="text-right px-6 py-4 text-sm font-medium">العائلة</th>
                   <th className="text-right px-6 py-4 text-sm font-medium">الحالة</th>
                   <th className="text-right px-6 py-4 text-sm font-medium">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredParents.length === 0 ? (
+                {isLoading ? (
+                    <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                <p>جاري تحميل البيانات...</p>
+                            </div>
+                        </td>
+                    </tr>
+                ) : processedParents.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                       <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -263,8 +301,8 @@ export function ParentsManagement({ onBack, onNavigate }) {
                     </td>
                   </tr>
                 ) : (
-                  filteredParents.map((parent) => (
-                    <tr key={parent.id} className="hover:bg-muted/30 transition-colors">
+                  processedParents.map((parent, index) => (
+                    <tr key={`${parent.id}-${index}`} className="hover:bg-muted/30 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -274,17 +312,18 @@ export function ParentsManagement({ onBack, onNavigate }) {
                               parent.parentType === 'father' ? 'text-primary' : 'text-pink-600'
                             }`} />
                           </div>
-                          <span className="font-medium">{parent.name}</span>
+                          <div>
+                            <span className="font-medium block">{parent.name}</span>
+                            <span className="text-xs text-muted-foreground">{parent.phone}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm font-mono">{parent.nationalId}</td>
                       <td className="px-6 py-4 text-sm">{parent.city}</td>
                       <td className="px-6 py-4">
-                        {parent.caseId ? (
-                          <span className="text-sm font-mono text-primary">{parent.caseId}</span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )}
+                        <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
+                            {parent.familyId.substring(0, 8)}...
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
@@ -299,11 +338,12 @@ export function ParentsManagement({ onBack, onNavigate }) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onNavigate('parent-details', parent)}
+                          // عند الضغط ننتقل لتفاصيل الأسرة باستخدام معرف الأسرة
+                          onClick={() => onNavigate('family-details', { familyId: parent.familyId })}
                           className="text-primary hover:text-primary hover:bg-primary/10"
                         >
-                          <Eye className="w-4 h-4 ml-1" />
-                          عرض
+                          <Search className="w-4 h-4 ml-1" />
+                          التفاصيل
                         </Button>
                       </td>
                     </tr>
@@ -315,9 +355,9 @@ export function ParentsManagement({ onBack, onNavigate }) {
         </Card>
 
         {/* Results Count */}
-        {filteredParents.length > 0 && (
+        {!isLoading && processedParents.length > 0 && (
           <p className="text-center text-sm text-muted-foreground mt-4">
-            عرض {filteredParents.length} من {mockParents.length} ولي أمر
+            عرض {processedParents.length} فرد (من أصل {families.length} أسرة)
           </p>
         )}
       </div>

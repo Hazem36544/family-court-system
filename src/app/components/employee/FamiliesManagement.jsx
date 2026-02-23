@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Search, Users, Briefcase, Edit, ChevronRight,
+  Plus, Search, Users, ChevronRight,
   FileText, AlertCircle, Loader2
 } from 'lucide-react';
 import { Card } from '../ui/card';
@@ -9,10 +9,10 @@ import { Button } from '../ui/button';
 import api from '../../../services/api'; 
 import { toast } from 'react-hot-toast';
 
-export function CasesManagement({ onNavigate, onBack }) {
+export function FamiliesManagement({ onNavigate, onBack }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [cases, setCases] = useState([]);
+  const [families, setFamilies] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
 
   const fetchFamilies = async (query = '') => {
@@ -25,19 +25,19 @@ export function CasesManagement({ onNavigate, onBack }) {
       setTotalCount(response.data.totalCount || 0);
       const familiesData = response.data.items || [];
       
-      const formattedCases = familiesData.map(family => ({
+      const formattedFamilies = familiesData.map(family => ({
         id: family.familyId,
         displayId: family.familyId.substring(0, 8).toUpperCase(),
         fatherName: family.father?.fullName || 'غير مسجل',
         motherName: family.mother?.fullName || 'غير مسجل',
         children: family.children?.length || 0,
-        statusLabel: 'نشطة',
+        statusLabel: 'مسجلة',
         statusClass: 'bg-green-100 text-green-700'
       }));
-      setCases(formattedCases);
+      setFamilies(formattedFamilies);
     } catch (err) {
       console.error("Error fetching families:", err);
-      setCases([]); 
+      setFamilies([]); 
     } finally {
       setLoading(false);
     }
@@ -60,41 +60,45 @@ export function CasesManagement({ onNavigate, onBack }) {
             <ChevronRight className="w-6 h-6 text-white" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold mb-1">جميع القضايا</h1>
-            <p className="text-blue-200 text-sm opacity-90">إدارة القضايا الأسرية المسجلة</p>
+            <h1 className="text-2xl font-bold mb-1">إدارة الأسر</h1>
+            <p className="text-blue-200 text-sm opacity-90">السجل المركزي للأسر المسجلة في النظام</p>
           </div>
         </div>
         <div className="hidden md:flex bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/10">
-           <Briefcase className="w-8 h-8 text-blue-100" />
+           <Users className="w-8 h-8 text-blue-100" />
         </div>
       </div>
 
       {/* 2. Search & Stats */}
       <div className="flex flex-col gap-6 mb-8">
-         {/* حقل البحث أصبح يأخذ العرض بالكامل بعد إزالة الزر */}
-         <div className="relative w-full">
-             <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-             <Input
-               placeholder="البحث بالرقم القومي..."
-               className="w-full pr-12 h-12 rounded-xl bg-white border-none shadow-sm text-right"
-               value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)}
-               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-             />
+         <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input
+                  placeholder="البحث بالرقم القومي للأب أو الأم..."
+                  className="w-full pr-12 h-12 rounded-xl bg-white border-none shadow-sm text-right"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+            </div>
+            <Button onClick={() => onNavigate('new-family')} className="bg-[#1e3a8a] text-white hover:bg-blue-800 shadow-sm h-12 px-6 rounded-xl gap-2 font-bold transition-transform hover:scale-105">
+                <Plus className="w-5 h-5" /> <span>إضافة أسرة جديدة</span>
+            </Button>
          </div>
 
          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4 bg-white border-none shadow-sm rounded-xl flex items-center justify-between">
-                <div className="text-right"><p className="text-2xl font-bold text-gray-800">{totalCount}</p><p className="text-xs text-gray-500">إجمالي القضايا</p></div>
-                <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600"><Briefcase className="w-6 h-6" /></div>
+                <div className="text-right"><p className="text-2xl font-bold text-gray-800">{totalCount}</p><p className="text-xs text-gray-500">إجمالي الأسر</p></div>
+                <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600"><Users className="w-6 h-6" /></div>
             </Card>
             <Card className="p-4 bg-white border-none shadow-sm rounded-xl flex items-center justify-between">
-                <div className="text-right"><p className="text-2xl font-bold text-gray-800">{totalCount}</p><p className="text-xs text-gray-500">قضايا نشطة</p></div>
+                <div className="text-right"><p className="text-2xl font-bold text-gray-800">{totalCount}</p><p className="text-xs text-gray-500">أسر نشطة</p></div>
                 <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600"><FileText className="w-6 h-6" /></div>
             </Card>
             <Card className="p-4 bg-white border-none shadow-sm rounded-xl flex items-center justify-between">
-                <div className="text-right"><p className="text-2xl font-bold text-gray-800">0</p><p className="text-xs text-gray-500">قضايا مغلقة</p></div>
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-600"><AlertCircle className="w-6 h-6" /></div>
+                <div className="text-right"><p className="text-2xl font-bold text-gray-800">0</p><p className="text-xs text-gray-500">تحتاج استكمال</p></div>
+                <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600"><AlertCircle className="w-6 h-6" /></div>
             </Card>
          </div>
       </div>
@@ -104,10 +108,10 @@ export function CasesManagement({ onNavigate, onBack }) {
         <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-blue-600" /></div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500">
-          {cases.map((family) => (
+          {families.map((family) => (
             <Card 
               key={family.id}
-              onClick={() => onNavigate('case-details', { familyId: family.id })}
+              onClick={() => onNavigate('family-details', { familyId: family.id })}
               className="group bg-white border border-gray-100 shadow-sm hover:shadow-lg transition-all rounded-xl p-6 cursor-pointer relative"
             >
               <div className="flex justify-between items-start mb-6">
@@ -120,20 +124,7 @@ export function CasesManagement({ onNavigate, onBack }) {
                        <div className="text-gray-400 text-xs font-mono">{family.id.substring(0, 8)}...</div>
                     </div>
                  </div>
-
-                 {/* أزرار التحكم */}
-                 <div className="flex gap-2 relative z-20">
-                    <Button 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNavigate('edit-family', { familyId: family.id });
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-2 px-4 h-9 shadow-sm"
-                    >
-                      <Edit className="w-4 h-4" /> تعديل
-                    </Button>
-                 </div>
+                 {/* تم إزالة زر التعديل كما طلبت ليكون التعديل من داخل صفحة التفاصيل */}
               </div>
 
               <div className="space-y-4">

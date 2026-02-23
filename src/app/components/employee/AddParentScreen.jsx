@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { ChevronLeft, User, Phone, Mail, MapPin, IdCard, Save, X, CheckCircle, UserPlus } from 'lucide-react';
-// تأكد من المسار: بما أن هذا الملف داخل مجلد employee، فالرجوع خطوة واحدة للوراء يوصلك لمجلد ui
+import { ChevronLeft, User, Phone, Mail, MapPin, IdCard, Save, X, CheckCircle, UserPlus, Loader2 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
+import { courtAPI } from '../../../services/api'; // تأكد من مسار الاستيراد الصحيح
+import { toast } from 'react-hot-toast';
 
 export function AddParentScreen({ onBack }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState({ username: '', password: '' });
   
   const [formData, setFormData] = useState({
@@ -13,105 +15,116 @@ export function AddParentScreen({ onBack }) {
     nationalId: '',
     phone: '',
     email: '',
-    parentType: 'father',
+    parentType: 'father', // father or mother
     address: '',
     city: 'القاهرة',
-    caseId: ''
+    caseId: '' // حقل اختياري
   });
 
   const [errors, setErrors] = useState({});
 
-  const cities = [
-    'القاهرة',
-    'الجيزة',
-    'الإسكندرية',
-    'الأقصر',
-    'أسوان',
-    'بورسعيد',
-    'السويس'
-  ];
+  const cities = ['القاهرة', 'الجيزة', 'الإسكندرية', 'الأقصر', 'أسوان', 'بورسعيد', 'السويس'];
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  // استخراج تاريخ الميلاد من الرقم القومي (مهم جداً للـ Backend)
+  const extractBirthDateFromNationalId = (nid) => {
+    if (!nid || nid.length !== 14) return new Date().toISOString().split('T')[0];
+    const century = nid[0];
+    const year = nid.substring(1, 3);
+    const month = nid.substring(3, 5);
+    const day = nid.substring(5, 7);
+    let fullYear = (century === "2" ? "19" : "20") + year;
+    return `${fullYear}-${month}-${day}`;
   };
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'الاسم الكامل مطلوب';
-    }
-
-    if (!formData.nationalId.trim()) {
-      newErrors.nationalId = 'رقم البطاقة مطلوب';
-    } else if (formData.nationalId.length !== 14) {
-      newErrors.nationalId = 'رقم البطاقة يجب أن يكون 14 رقم';
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'رقم الجوال مطلوب';
-    } else if (!/^01[0-9]{9}$/.test(formData.phone)) {
-      newErrors.phone = 'رقم الجوال غير صحيح';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'البريد الإلكتروني مطلوب';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'البريد الإلكتروني غير صحيح';
-    }
-
-    if (!formData.address.trim()) {
-      newErrors.address = 'العنوان مطلوب';
-    }
-
+    if (!formData.name.trim()) newErrors.name = 'الاسم الكامل مطلوب';
+    if (!formData.nationalId.trim() || formData.nationalId.length !== 14) newErrors.nationalId = 'رقم البطاقة يجب أن يكون 14 رقم';
+    if (!formData.phone.trim() || !/^01[0-9]{9}$/.test(formData.phone)) newErrors.phone = 'رقم الجوال غير صحيح';
+    // البريد الإلكتروني اختياري في بعض الأنظمة، لكن إذا أدخله يجب أن يكون صحيحاً
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'البريد الإلكتروني غير صحيح';
+    if (!formData.address.trim()) newErrors.address = 'العنوان مطلوب';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const generateCredentials = () => {
-    // Generate username from national ID
-    const username = `parent_${formData.nationalId}`;
-    
-    // Generate random password
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    
-    return { username, password };
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (validateForm()) {
-      // Generate login credentials
-      const credentials = generateCredentials();
-      setGeneratedCredentials(credentials);
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+
+    try {
+      const birthDate = extractBirthDateFromNationalId(formData.nationalId);
       
-      // Show success modal
-      setShowSuccessModal(true);
+      // تجهيز كائن الولي (Parent Object)
+      const parentData = {
+        nationalId: formData.nationalId,
+        fullName: formData.name,
+        birthDate: birthDate,
+        gender: formData.parentType === 'father' ? 'Male' : 'Female',
+        job: 'غير محدد', // قيمة افتراضية لتجنب الرفض
+        address: `${formData.city} - ${formData.address}`,
+        phone: formData.phone,
+        email: formData.email || null // إرسال null إذا كان فارغاً
+      };
+
+      // هيكل الـ Payload المتوافق مع enrollFamily
+      // نرسل الولي المطلوب فقط، والآخر null
+      const payload = {
+        father: formData.parentType === 'father' ? parentData : null,
+        mother: formData.parentType === 'mother' ? parentData : null,
+        children: [] // مصفوفة فارغة
+      };
+
+      console.log('Sending Payload:', payload);
+
+      const response = await courtAPI.enrollFamily(payload);
       
-      // Here you would normally send data to backend
-      console.log('Parent data:', formData);
-      console.log('Credentials:', credentials);
+      // استخراج بيانات الدخول من الرد (Credential Extraction)
+      let credentials = null;
+      if (formData.parentType === 'father') {
+        credentials = response.data.fatherCredential;
+      } else {
+        credentials = response.data.motherCredential;
+      }
+
+      if (credentials) {
+        setGeneratedCredentials({
+          username: credentials.username,
+          password: credentials.temporaryPassword
+        });
+        setShowSuccessModal(true);
+        toast.success("تم إنشاء الحساب بنجاح");
+      } else {
+        toast.error("تم الحفظ لكن لم يتم استلام بيانات الدخول");
+      }
+
+    } catch (error) {
+      console.error("Enrollment Error:", error);
+      const msg = error.response?.data?.detail || error.response?.data?.title || "فشل إنشاء الحساب. تأكد من أن الرقم القومي غير مسجل مسبقاً.";
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleCloseSuccess = () => {
     setShowSuccessModal(false);
-    onBack();
+    onBack(); // العودة للقائمة
   };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+    toast.success("تم النسخ للحافظة");
   };
 
+  // --- نفس كود الواجهة (JSX) تماماً بدون تغيير ---
   return (
     <div className="min-h-screen bg-background pb-6" dir="rtl">
       {/* Header */}
@@ -153,6 +166,7 @@ export function AddParentScreen({ onBack }) {
                     errors.name ? 'border-destructive' : 'border-border'
                   }`}
                   placeholder="مثال: أحمد محمد عبد الله"
+                  disabled={isLoading}
                 />
                 {errors.name && (
                   <p className="text-destructive text-sm mt-1">{errors.name}</p>
@@ -168,6 +182,7 @@ export function AddParentScreen({ onBack }) {
                   value={formData.parentType}
                   onChange={(e) => handleInputChange('parentType', e.target.value)}
                   className="w-full px-4 py-3 border border-border rounded-lg bg-background"
+                  disabled={isLoading}
                 >
                   <option value="father">الأب</option>
                   <option value="mother">الأم</option>
@@ -186,8 +201,9 @@ export function AddParentScreen({ onBack }) {
                   className={`w-full px-4 py-3 border rounded-lg bg-background ${
                     errors.nationalId ? 'border-destructive' : 'border-border'
                   }`}
-                  placeholder="12345678901234"
+                  placeholder="14 رقم"
                   maxLength={14}
+                  disabled={isLoading}
                 />
                 {errors.nationalId && (
                   <p className="text-destructive text-sm mt-1">{errors.nationalId}</p>
@@ -206,8 +222,9 @@ export function AddParentScreen({ onBack }) {
                   className={`w-full px-4 py-3 border rounded-lg bg-background ${
                     errors.phone ? 'border-destructive' : 'border-border'
                   }`}
-                  placeholder="01012345678"
+                  placeholder="01xxxxxxxxx"
                   maxLength={11}
+                  disabled={isLoading}
                 />
                 {errors.phone && (
                   <p className="text-destructive text-sm mt-1">{errors.phone}</p>
@@ -227,6 +244,7 @@ export function AddParentScreen({ onBack }) {
                     errors.email ? 'border-destructive' : 'border-border'
                   }`}
                   placeholder="example@email.com"
+                  disabled={isLoading}
                 />
                 {errors.email && (
                   <p className="text-destructive text-sm mt-1">{errors.email}</p>
@@ -242,6 +260,7 @@ export function AddParentScreen({ onBack }) {
                   value={formData.city}
                   onChange={(e) => handleInputChange('city', e.target.value)}
                   className="w-full px-4 py-3 border border-border rounded-lg bg-background"
+                  disabled={isLoading}
                 >
                   {cities.map((city) => (
                     <option key={city} value={city}>{city}</option>
@@ -261,7 +280,8 @@ export function AddParentScreen({ onBack }) {
                     errors.address ? 'border-destructive' : 'border-border'
                   }`}
                   rows={3}
-                  placeholder="مثال: شارع الهرم - الجيزة - بجوار مسجد النور"
+                  placeholder="مثال: شارع الهرم - الجيزة"
+                  disabled={isLoading}
                 />
                 {errors.address && (
                   <p className="text-destructive text-sm mt-1">{errors.address}</p>
@@ -279,9 +299,10 @@ export function AddParentScreen({ onBack }) {
                   onChange={(e) => handleInputChange('caseId', e.target.value)}
                   className="w-full px-4 py-3 border border-border rounded-lg bg-background"
                   placeholder="مثال: CASE-12453"
+                  disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  يمكنك ربط ولي الأمر بقضية موجودة أو تركه فارغاً
+                  * سيتم ربط ولي الأمر بالقضية لاحقاً
                 </p>
               </div>
             </div>
@@ -294,9 +315,9 @@ export function AddParentScreen({ onBack }) {
               <div className="text-sm">
                 <p className="font-medium mb-1">معلومات هامة</p>
                 <ul className="text-muted-foreground space-y-1 mr-4 list-disc">
-                  <li>سيتم إنشاء اسم مستخدم وكلمة مرور تلقائياً لولي الأمر</li>
-                  <li>سيتم إرسال بيانات الدخول عبر البريد الإلكتروني ورسالة نصية</li>
-                  <li>يمكن لولي الأمر تغيير كلمة المرور من حسابه الشخصي</li>
+                  <li>سيتم إنشاء اسم مستخدم وكلمة مرور تلقائياً من النظام.</li>
+                  <li>يرجى تسليم البيانات لولي الأمر أو طباعتها.</li>
+                  <li>تاريخ الميلاد سيتم استخراجه تلقائياً من الرقم القومي.</li>
                 </ul>
               </div>
             </div>
@@ -306,15 +327,26 @@ export function AddParentScreen({ onBack }) {
           <div className="flex gap-4">
             <Button 
               type="submit"
-              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base"
+              disabled={isLoading}
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base flex items-center justify-center gap-2"
             >
-              <Save className="w-5 h-5 ml-2" />
-              حفظ وإنشاء الحساب
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  جاري الحفظ...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5 ml-2" />
+                  حفظ وإنشاء الحساب
+                </>
+              )}
             </Button>
             <Button 
               type="button"
               variant="outline"
               onClick={onBack}
+              disabled={isLoading}
               className="flex-1 border-border h-12 text-base"
             >
               <X className="w-5 h-5 ml-2" />
@@ -327,14 +359,14 @@ export function AddParentScreen({ onBack }) {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" dir="rtl">
-          <Card className="w-full max-w-lg bg-card border-border overflow-hidden">
+          <Card className="w-full max-w-lg bg-card border-border overflow-hidden animate-in fade-in zoom-in duration-300">
             {/* Modal Header */}
             <div className="bg-green-500 text-white p-6 text-center">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-10 h-10" />
               </div>
               <h2 className="text-2xl font-bold">تم إنشاء الحساب بنجاح!</h2>
-              <p className="text-sm opacity-90 mt-2">تم إضافة ولي الأمر إلى النظام</p>
+              <p className="text-sm opacity-90 mt-2">تم تسجيل البيانات في النظام واستلام بيانات الدخول</p>
             </div>
 
             {/* Modal Body */}
@@ -362,7 +394,7 @@ export function AddParentScreen({ onBack }) {
               <div className="bg-primary/5 border border-primary/20 p-5 rounded-lg">
                 <h3 className="font-medium mb-4 flex items-center gap-2">
                   <IdCard className="w-5 h-5 text-primary" />
-                  بيانات تسجيل الدخول
+                  بيانات تسجيل الدخول (من النظام)
                 </h3>
                 <div className="space-y-4">
                   <div>
@@ -372,7 +404,7 @@ export function AddParentScreen({ onBack }) {
                         type="text"
                         value={generatedCredentials.username}
                         readOnly
-                        className="flex-1 px-3 py-2 bg-background border border-border rounded text-sm font-mono"
+                        className="flex-1 px-3 py-2 bg-background border border-border rounded text-sm font-mono text-center"
                       />
                       <Button
                         type="button"
@@ -385,13 +417,13 @@ export function AddParentScreen({ onBack }) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">كلمة المرور</label>
+                    <label className="block text-xs text-muted-foreground mb-1">كلمة المرور المؤقتة</label>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={generatedCredentials.password}
                         readOnly
-                        className="flex-1 px-3 py-2 bg-background border border-border rounded text-sm font-mono"
+                        className="flex-1 px-3 py-2 bg-background border border-border rounded text-sm font-mono text-center"
                       />
                       <Button
                         type="button"
@@ -409,7 +441,7 @@ export function AddParentScreen({ onBack }) {
               {/* Notice */}
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
                 <p className="text-sm text-yellow-800">
-                  <span className="font-medium">تنبيه:</span> تم إرسال بيانات الدخول إلى البريد الإلكتروني {formData.email} ورقم الجوال {formData.phone}
+                  <span className="font-medium">تنبيه:</span> يرجى حفظ بيانات الدخول هذه وتسليمها للمستخدم، حيث لن تظهر مرة أخرى.
                 </p>
               </div>
 
@@ -418,7 +450,7 @@ export function AddParentScreen({ onBack }) {
                 onClick={handleCloseSuccess}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11"
               >
-                تم
+                تم وإنهاء
               </Button>
             </div>
           </Card>

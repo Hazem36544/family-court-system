@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>فحص الـ JSON</title>
+    <style>
+        body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; direction: ltr; }
+        h1 { text-align: center; color: #61dafb; }
+        pre { background: #000; padding: 15px; border-radius: 10px; border: 1px solid #333; overflow-x: auto; }
+        .success { color: #4caf50; }
+        .error { color: #f44336; }
+    </style>
+</head>
+<body>
+    <h1>Console Inspector 🕵️‍♂️</h1>
+    <h3 style="text-align: center;">اضغط F12 وشوف الـ Console Table</h3>
+    <div id="result">جاري الجلب...</div>
+
+    <script>
+        async function runTest() {
+            console.clear();
+            console.log("🚀 ... جاري الاتصال لجلب الـ JSON");
+            const resultDiv = document.getElementById('result');
+
+            // التوكن بتاعك
+            const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTk2NDg2OC03Mzc2LTQ0ODEtYTc3Ny1lZDdiNjE1N2IxZDMiLCJyb2xlSWQiOiIwZWQxYmU5Ni0wYzQ0LTQ3MzctODZlNS02MTJjNThkOWEwYTEiLCJyb2xlIjoiQ291cnRTdGFmZiIsInRtcF9wd2QiOiJGYWxzZSIsImlhdCI6MTc3MTMzNTY0MiwiY291cnRJZCI6ImYxZDlhMTZjLWY4YTYtNDQzMC1iZWU3LWZiOGQ0OTM1NTNiMyIsIm5iZiI6MTc3MTMzNTY0MiwiZXhwIjoxNzcxMzM1NjQyLCJpc3MiOiJXZXNhbEFwaSIsImF1ZCI6Ildlc2FsQ2xpZW50In0.gOuMNxV11FYG3qYsCDcIFIySlN3RT5WaC7nE2Hj9wFo"; 
+
+            try {
+                // هنجرب نطلب البيانات
+                const url = 'http://wesal.runasp.net/api/courts/me/families?PageSize=10&PageNumber=1';
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log("📡 Status Code:", response.status);
+                const data = await response.json();
+
+                // ========================================================
+                // 🧐 هنا الخلاصة: طباعة البيانات بشكل نضيف
+                // ========================================================
+                
+                console.log("📦 الرد الخام (Raw Object):", data);
+
+                // لو الرد فيه مصفوفة اسمها items (وده الغالب في الـ Pagination)
+                if (data.items && Array.isArray(data.items)) {
+                    console.log("📊 جدول البيانات (Array of Objects):");
+                    console.table(data.items); // <--- دي اللي هتعرضلك الجدول
+                } else if (Array.isArray(data)) {
+                    console.table(data);
+                }
+
+                // عرض النتيجة على الشاشة
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <h2 class="success">✅ تم الجلب بنجاح (Status: ${response.status})</h2>
+                        <p>شكل البيانات (JSON Structure):</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h2 class="error">❌ فشل الاتصال (Status: ${response.status})</h2>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+
+            } catch (error) {
+                console.error("💥 Error:", error);
+                resultDiv.innerHTML = `<h2 class="error">💥 Network Error</h2><p>${error.message}</p>`;
+            }
+        }
+
+        runTest();
+    </script>
+</body>
+</html>

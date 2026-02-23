@@ -2,35 +2,29 @@ import React from 'react';
 import { 
   Home, 
   Briefcase, 
-  AlertTriangle, 
-  GraduationCap, 
-  User,
+  Users, 
+  GraduationCap, // أيقونة المدارس
+  MapPin,        // أيقونة مراكز الرؤية
+  FileEdit,
   MessageSquare,
-  LogOut,
-  Search,
-  FileEdit
+  AlertTriangle, 
+  User,
+  LogOut
 } from 'lucide-react';
 
-export function Sidebar({ currentScreen, onNavigate, userRole, onLogout }) {
+export function Sidebar({ currentScreen, onNavigate, onLogout }) {
   
-  const employeeMenuItems = [
+  const menuItems = [
     { id: 'home', label: 'الرئيسية', icon: Home },
     { id: 'cases', label: 'القضايا', icon: Briefcase },
+    { id: 'families-management', label: 'إدارة الأسر', icon: Users },
+    { id: 'schools', label: 'المدارس', icon: GraduationCap }, // الإضافة الجديدة 1
+    { id: 'visitation-centers', label: 'مراكز الرؤية', icon: MapPin }, // الإضافة الجديدة 2
     { id: 'data-change-requests', label: 'الطلبات', icon: FileEdit },
     { id: 'complaints-management', label: 'الشكاوى', icon: MessageSquare },
     { id: 'violations', label: 'المخالفات', icon: AlertTriangle },
     { id: 'account', label: 'الحساب', icon: User },
   ];
-
-  const parentMenuItems = [
-    { id: 'home', label: 'الرئيسية', icon: Home },
-    { id: 'students-search', label: 'بحث طلاب', icon: Search },
-    { id: 'school-reports', label: 'التقارير', icon: GraduationCap },
-    { id: 'complaint', label: 'شكوى', icon: MessageSquare },
-    { id: 'account', label: 'الحساب', icon: User },
-  ];
-
-  const menuItems = userRole === 'employee' ? employeeMenuItems : parentMenuItems;
 
   return (
     <div 
@@ -38,22 +32,26 @@ export function Sidebar({ currentScreen, onNavigate, userRole, onLogout }) {
       dir="rtl"
     >
       
-      {/* --- 1. الشعار (تم التعديل: بدون خلفية وبحجم أكبر) --- */}
+      {/* --- 1. الشعار --- */}
       <div className="mb-6 flex-shrink-0 w-full flex justify-center">
-           <img 
-             src="/logo.svg" 
-             alt="شعار" 
-             // الحجم هنا w-20 h-20 (أكبر)، وضفت drop-shadow عشان يبرز
-             className="w-20 h-20 object-contain hover:scale-110 transition-transform duration-300 drop-shadow-xl"
-             onError={(e) => { e.target.style.display = 'none'; }} 
-           />
+        <img 
+          src={`${import.meta.env.BASE_URL}logo.svg`} 
+          alt="شعار" 
+          className="w-20 h-20 object-contain hover:scale-110 transition-transform duration-300 drop-shadow-xl"
+          onError={(e) => { e.target.src = 'https://via.placeholder.com/80?text=Logo'; }} 
+        />
       </div>
 
       {/* --- 2. الأيقونات والنصوص --- */}
       <nav className="flex-1 w-full px-2 flex flex-col gap-3 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = currentScreen === item.id;
+          
+          // التحقق من الحالة النشطة (مع دعم التنقلات الفرعية)
+          const isActive = 
+            currentScreen === item.id || 
+            (item.id === 'families-management' && (currentScreen === 'new-family' || currentScreen === 'family-details')) ||
+            (item.id === 'cases' && currentScreen === 'case-details');
           
           return (
             <button
@@ -67,7 +65,7 @@ export function Sidebar({ currentScreen, onNavigate, userRole, onLogout }) {
                 }
               `}
             >
-              <Icon className={`w-6 h-6 transition-colors duration-300 mb-0.5`} />
+              <Icon className="w-6 h-6 transition-colors duration-300 mb-0.5" />
               
               <span className="text-[11px] font-bold tracking-wide text-center leading-tight">
                 {item.label}

@@ -1,513 +1,317 @@
-import React, { useState } from 'react';
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
-// تأكد من المسارات الصحيحة للمكونات
-import { Card } from '../ui/card';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
+import React, { useState, useEffect } from 'react';
+import { 
+  ChevronRight, Save, UserPlus, Users, Briefcase, 
+  Baby, Trash2, CheckCircle, Copy, Loader2, AlertCircle
+} from 'lucide-react';
+import api, { courtAPI } from '../../../services/api'; 
 
 export function NewFamilyScreen({ onBack, onSave, familyData }) {
   const isEditMode = !!familyData;
-  
-  // معلومات القضية الأساسية
-  const [caseNumber, setCaseNumber] = useState(familyData?.id || '');
-  const [caseDate, setCaseDate] = useState(familyData?.date || '');
-  const [courtLocation, setCourtLocation] = useState(familyData?.courtLocation || '');
-  
-  // حالة القضية
-  const [caseStatus, setCaseStatus] = useState(familyData?.status || 'نشطة');
-  
-  // جدول الزيارات
-  const [visitSchedule, setVisitSchedule] = useState(familyData?.visitSchedule || '');
-  const [visitLocation, setVisitLocation] = useState(familyData?.visitLocation || '');
-  const [visitNotes, setVisitNotes] = useState(familyData?.visitNotes || '');
-  
-  // معلومات النفقة
-  const [alimonyAmount, setAlimonyAmount] = useState(familyData?.alimonyAmount || '');
-  const [alimonyFrequency, setAlimonyFrequency] = useState(familyData?.alimonyFrequency || 'شهري');
-  const [alimonyStatus, setAlimonyStatus] = useState(familyData?.alimonyStatus || 'منتظمة');
-  
-  // تحميل بيانات الأب
-  const [fatherName, setFatherName] = useState(familyData?.fatherName || '');
-  const [fatherNationalId, setFatherNationalId] = useState('');
-  const [fatherPhone, setFatherPhone] = useState('');
-  const [fatherJob, setFatherJob] = useState('');
-  const [fatherAddress, setFatherAddress] = useState('');
-  
-  // تحميل بيانات الأم
-  const [motherName, setMotherName] = useState(familyData?.motherName || '');
-  const [motherNationalId, setMotherNationalId] = useState('');
-  const [motherPhone, setMotherPhone] = useState('');
-  const [motherJob, setMotherJob] = useState('');
-  const [motherAddress, setMotherAddress] = useState('');
-  
-  // تحميل بيانات الأطفال
-  const [children, setChildren] = useState(
-    isEditMode && familyData?.children > 0
-      ? Array.from({ length: familyData.children }, (_, i) => ({
-          id: i + 1,
-          name: `طفل ${i + 1}`,
-          age: '10',
-          gender: i % 2 === 0 ? 'ذكر' : 'أنثى',
-          custodyDecision: 'الأم',
-          school: 'مدرسة النيل الدولية',
-          studentCode: `STD-2024-00${i + 1}`,
-          schoolCode: 'SCH-CAI-001'
-        }))
-      : [{ id: 1, name: '', age: '', gender: 'ذكر', custodyDecision: '', school: '', studentCode: '', schoolCode: '' }]
-  );
 
+  const [schoolsList, setSchoolsList] = useState([]); 
+
+  const [father, setFather] = useState({
+    fullName: '', nationalId: '', phone: '', email: '', 
+    job: '', address: '', birthDate: '', gender: 'Male'
+  });
+
+  const [mother, setMother] = useState({
+    fullName: '', nationalId: '', phone: '', email: '', 
+    job: '', address: '', birthDate: '', gender: 'Female'
+  });
+
+  const [children, setChildren] = useState([]);
+  const [newChild, setNewChild] = useState({
+    name: '', birthDate: '', gender: 'Male', school: '', studentCode: ''
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
+  const [successData, setSuccessData] = useState({
+      family: null
+  });
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+        try {
+            const schoolRes = await api.get('/api/schools', { params: { PageNumber: 1, PageSize: 100 } });
+            if (schoolRes.data && schoolRes.data.items) {
+                setSchoolsList(schoolRes.data.items);
+            }
+        } catch (e) {
+            console.warn("⚠️ فشل تحميل قائمة المدارس", e);
+        }
+    };
+    
+    fetchInitialData();
+
+    if (familyData) {
+      setFather(prev => ({ ...prev, ...familyData.father }));
+      setMother(prev => ({ ...prev, ...familyData.mother }));
+      setChildren(familyData.children || []);
+    }
+  }, [familyData]);
+
+  const extractBirthDate = (id) => {
+    if (!id || id.length !== 14) return new Date().toISOString().split('T')[0];
+    const century = id[0] === '2' ? '19' : '20';
+    const year = century + id.substring(1, 3);
+    const month = id.substring(3, 5);
+    const day = id.substring(5, 7);
+    return `${year}-${month}-${day}`;
+  };
+
+  const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+  const clean = (obj) => {
+    const newObj = { ...obj };
+    Object.keys(newObj).forEach(key => {
+      if (typeof newObj[key] === 'string' && newObj[key].trim() === '') {
+        newObj[key] = null;
+      }
+    });
+    return newObj;
+  };
+
+  const handleFatherChange = (e) => setFather({ ...father, [e.target.name]: e.target.value });
+  const handleMotherChange = (e) => setMother({ ...mother, [e.target.name]: e.target.value });
+  
   const addChild = () => {
-    setChildren([...children, { id: Date.now(), name: '', age: '', gender: 'ذكر', custodyDecision: '', school: '', studentCode: '', schoolCode: '' }]);
+    if (!newChild.name) return;
+    setChildren([...children, { ...newChild, id: Date.now() }]);
+    setNewChild({ 
+      name: '', birthDate: '', gender: 'Male', school: '', studentCode: '' 
+    });
   };
 
-  const removeChild = (id) => {
-    setChildren(children.filter(child => child.id !== id));
+  const removeChild = (id) => setChildren(children.filter(c => c.id !== id));
+
+  const copyToClipboard = (text) => {
+    if(!text) return;
+    navigator.clipboard.writeText(text);
   };
 
-  const updateChild = (id, field, value) => {
-    setChildren(children.map(child =>
-      child.id === id ? { ...child, [field]: value } : child
-    ));
+  const getSchoolName = (schoolId) => {
+      if (!schoolId) return 'مدرسة غير محددة';
+      const school = schoolsList.find(s => s.id === schoolId);
+      return school ? school.name : 'مدرسة غير محددة';
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'نشطة':
-        return 'bg-secondary text-white';
-      case 'قيد المراجعة':
-        return 'bg-yellow-500 text-white';
-      case 'محفوظة':
-        return 'bg-muted text-foreground';
-      case 'مغلقة':
-        return 'bg-red-500 text-white';
-      case 'معلقة':
-        return 'bg-orange-500 text-white';
-      default:
-        return 'bg-gray-500 text-white';
+  // ==================================================================================
+  // تنفيذ الحفظ (Submit Logic) - مخصص لإنشاء الأسرة فقط
+  // ==================================================================================
+  const handleSubmit = async () => {
+    if (!father.nationalId || !mother.nationalId || !father.fullName) {
+      setError("يرجى إدخال البيانات الأساسية (الاسم والرقم القومي) للأب والأم");
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    let finalChildren = [...children];
+    if (newChild.name && newChild.name.trim() !== '') {
+      finalChildren.push({ ...newChild, id: Date.now() });
+      setChildren(finalChildren);
+      setNewChild({ name: '', birthDate: '', gender: 'Male', school: '', studentCode: '' });
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const processedChildren = finalChildren.map(c => ({
+        fullName: c.name,
+        birthDate: c.birthDate ? new Date(c.birthDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        gender: c.gender,
+        schoolId: (c.school && isUUID(c.school)) ? c.school : null
+      }));
+
+      const familyPayload = {
+        father: { 
+            ...clean(father), 
+            birthDate: extractBirthDate(father.nationalId),
+            job: father.job || null,
+            address: father.address || null,
+            email: father.email || null,
+            phone: father.phone || null
+        },
+        mother: { 
+            ...clean(mother), 
+            birthDate: extractBirthDate(mother.nationalId),
+            job: mother.job || null,
+            address: mother.address || null,
+            email: mother.email || null,
+            phone: mother.phone || null
+        },
+        children: processedChildren 
+      };
+
+      console.log("1. Sending Family Payload...");
+      const familyRes = await courtAPI.enrollFamily(familyPayload);
+      setSuccessData({ family: familyRes.data });
+
+    } catch (err) {
+      console.error("❌ Fatal Error:", err);
+      const msg = err.response?.data?.detail || err.response?.data?.title || "فشل في إنشاء الملف. يرجى مراجعة صحة البيانات وتغيير الرقم القومي إذا كان مسجلاً مسبقاً.";
+      setError(msg);
+      window.scrollTo(0, 0);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background pb-20" dir="rtl">
-      {/* Header */}
-      <div className="bg-primary text-primary-foreground p-6 rounded-b-3xl shadow-lg">
-        <div className="max-w-md mx-auto">
-          <button onClick={onBack} className="mb-4 flex items-center gap-2 opacity-90 hover:opacity-100">
-            <ChevronLeft className="w-5 h-5 rotate-180" />
-            <span>رجوع</span>
-          </button>
-          <h1 className="text-2xl">
-            {isEditMode ? 'تعديل بيانات القضية' : 'إنشاء أسرة جديدة'}
-          </h1>
-          {isEditMode && familyData?.id && (
-            <p className="text-sm opacity-80 mt-1">
-              القضية {familyData.id} - {familyData.familyId}
-            </p>
-          )}
+  // ==================================================================================
+  // واجهة المستخدم (UI)
+  // ==================================================================================
+
+  if (successData.family) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center" dir="rtl">
+        <div className="bg-white rounded-[2.5rem] shadow-xl p-8 max-w-4xl w-full text-center border border-gray-100 animate-in zoom-in duration-300">
+           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-12 h-12 text-green-600" />
+           </div>
+           <h2 className="text-3xl font-bold text-gray-800 mb-2">تم فتح الملف بنجاح!</h2>
+           
+           <p className="text-gray-500 mb-8">تم تسجيل الأسرة وإصدار بيانات الدخول بنجاح.</p>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-right">
+              {/* حساب الأب */}
+              <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 relative overflow-hidden">
+                 <div className="absolute top-0 left-0 w-20 h-20 bg-blue-100 rounded-full -translate-x-1/2 -translate-y-1/2 blur-xl"></div>
+                 <h3 className="font-bold text-blue-900 mb-4 flex items-center gap-2 relative z-10"><Users className="w-5" /> حساب الأب</h3>
+                 <div className="space-y-3 relative z-10">
+                    <div className="bg-white p-3 rounded-xl border border-blue-200 flex justify-between items-center">
+                       <span className="text-sm font-mono font-bold text-blue-800 truncate">{successData.family.fatherCredential?.username}</span>
+                       <Copy className="w-4 h-4 cursor-pointer text-blue-500 flex-shrink-0" onClick={() => copyToClipboard(successData.family.fatherCredential?.username)} />
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-blue-200 flex justify-between items-center">
+                       <span className="text-sm font-mono font-bold text-blue-800 truncate">{successData.family.fatherCredential?.temporaryPassword}</span>
+                       <Copy className="w-4 h-4 cursor-pointer text-blue-500 flex-shrink-0" onClick={() => copyToClipboard(successData.family.fatherCredential?.temporaryPassword)} />
+                    </div>
+                 </div>
+              </div>
+
+              {/* حساب الأم */}
+              <div className="bg-pink-50 p-6 rounded-3xl border border-pink-100 relative overflow-hidden">
+                 <div className="absolute top-0 left-0 w-20 h-20 bg-pink-100 rounded-full -translate-x-1/2 -translate-y-1/2 blur-xl"></div>
+                 <h3 className="font-bold text-pink-900 mb-4 flex items-center gap-2 relative z-10"><Users className="w-5" /> حساب الأم</h3>
+                 <div className="space-y-3 relative z-10">
+                    <div className="bg-white p-3 rounded-xl border border-pink-200 flex justify-between items-center">
+                       <span className="text-sm font-mono font-bold text-pink-800 truncate">{successData.family.motherCredential?.username}</span>
+                       <Copy className="w-4 h-4 cursor-pointer text-pink-500 flex-shrink-0" onClick={() => copyToClipboard(successData.family.motherCredential?.username)} />
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-pink-200 flex justify-between items-center">
+                       <span className="text-sm font-mono font-bold text-pink-800 truncate">{successData.family.motherCredential?.temporaryPassword}</span>
+                       <Copy className="w-4 h-4 cursor-pointer text-pink-500 flex-shrink-0" onClick={() => copyToClipboard(successData.family.motherCredential?.temporaryPassword)} />
+                    </div>
+                 </div>
+              </div>
+           </div>
+           
+           <button onClick={onSave} className="bg-[#1e3a8a] text-white px-8 py-4 rounded-2xl font-bold w-full hover:bg-blue-800 transition-all text-lg shadow-lg">إغلاق والعودة للقائمة</button>
         </div>
       </div>
+    );
+  }
 
-      <div className="max-w-md mx-auto px-4 mt-6 space-y-6">
-        {/* Case Basic Information */}
-        <Card className="p-5 bg-card border-border">
-          <h3 className="mb-4">معلومات القضية الأساسية</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 text-sm">رقم القضية</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل رقم القضية (مثال: CASE-12453)" 
-                className="text-right font-mono" 
-                dir="rtl" 
-                value={caseNumber}
-                onChange={(e) => setCaseNumber(e.target.value)}
-                disabled={isEditMode}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">تاريخ القضية</label>
-              <Input 
-                type="date" 
-                className="text-right" 
-                dir="rtl" 
-                value={caseDate}
-                onChange={(e) => setCaseDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">موقع المحكمة</label>
-              <select 
-                className="w-full h-10 px-3 rounded-lg border border-border bg-background text-right"
-                dir="rtl"
-                value={courtLocation}
-                onChange={(e) => setCourtLocation(e.target.value)}
-              >
-                <option value="">اختر موقع المحكمة</option>
-                <option value="محكمة الأسرة - القاهرة">محكمة الأسرة - القاهرة</option>
-                <option value="محكمة الأسرة - الجيزة">محكمة الأسرة - الجيزة</option>
-                <option value="محكمة الأسرة - الإسكندرية">محكمة الأسرة - الإسكندرية</option>
-                <option value="محكمة الأسرة - المنصورة">محكمة الأسرة - المنصورة</option>
-                <option value="محكمة الأسرة - طنطا">محكمة الأسرة - طنطا</option>
-                <option value="محكمة الأسرة - أسيوط">محكمة الأسرة - أسيوط</option>
-                <option value="محكمة الأسرة - المنيا">محكمة الأسرة - المنيا</option>
-              </select>
-            </div>
+  // --- الشاشة الرئيسية ---
+  return (
+    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8" dir="rtl">
+      
+      {/* Header */}
+      <div className="relative w-full bg-[#1e3a8a] rounded-[2.5rem] p-8 text-white flex flex-col md:flex-row justify-between items-center overflow-hidden shadow-xl mb-10">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl pointer-events-none"></div>
+          <div className="flex items-center gap-6 relative z-10 w-full md:w-auto">
+            <button onClick={onBack} className="bg-white/10 p-4 rounded-2xl hover:bg-white/20 transition-all group"><ChevronRight className="w-6 h-6 text-white" /></button>
+            <div><p className="text-blue-200 text-sm font-medium mb-1 opacity-90">إدارة الأسر</p><h1 className="text-2xl md:text-3xl font-bold mb-1 tracking-wide">{isEditMode ? 'تعديل الملف' : 'تسجيل أسرة جديدة'}</h1></div>
           </div>
-        </Card>
+          <div className="hidden md:flex w-20 h-20 bg-white/10 rounded-3xl items-center justify-center border border-white/10 shadow-inner"><UserPlus className="w-10 h-10 text-white" /></div>
+      </div>
 
-        {/* Case Status */}
-        <Card className="p-5 bg-card border-border">
-          <h3 className="mb-4">حالة القضية</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 text-sm">الحالة</label>
-              <select 
-                className={`w-full h-10 px-3 rounded-lg border-0 text-right font-medium ${getStatusColor(caseStatus)}`}
-                dir="rtl"
-                value={caseStatus}
-                onChange={(e) => setCaseStatus(e.target.value)}
-              >
-                <option value="نشطة">نشطة</option>
-                <option value="قيد المراجعة">قيد المراجعة</option>
-                <option value="محفوظة">محفوظة</option>
-                <option value="مغلقة">مغلقة</option>
-                <option value="معلقة">معلقة</option>
-              </select>
-            </div>
-          </div>
-        </Card>
+      <div className="max-w-7xl mx-auto space-y-8">
+        {error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl flex items-start gap-3 border border-red-100 whitespace-pre-wrap"><AlertCircle className="w-5 h-5 flex-shrink-0" /> <span className="font-medium text-sm">{error}</span></div>}
 
-        {/* Visit Schedule */}
-        <Card className="p-5 bg-card border-border">
-          <h3 className="mb-4">جدول الزيارات</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 text-sm">مواعيد الزيارة</label>
-              <Input 
-                type="text" 
-                placeholder="مثال: كل جمعة من 2 ظهراً إلى 6 مساءً" 
-                className="text-right" 
-                dir="rtl" 
-                value={visitSchedule}
-                onChange={(e) => setVisitSchedule(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">مكان الزيارة</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل مكان الزيارة" 
-                className="text-right" 
-                dir="rtl" 
-                value={visitLocation}
-                onChange={(e) => setVisitLocation(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">ملاحظات إضافية</label>
-              <textarea 
-                placeholder="أدخل أي ملاحظات خاصة بجدول الزيارات" 
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-right min-h-20" 
-                dir="rtl" 
-                value={visitNotes}
-                onChange={(e) => setVisitNotes(e.target.value)}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Alimony Information */}
-        <Card className="p-5 bg-card border-border">
-          <h3 className="mb-4">معلومات النفقة</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 text-sm">مبلغ النفقة (جنيه مصري)</label>
-              <Input 
-                type="number" 
-                placeholder="أدخل مبلغ النفقة" 
-                className="text-right" 
-                dir="rtl" 
-                value={alimonyAmount}
-                onChange={(e) => setAlimonyAmount(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">دورية السداد</label>
-              <select 
-                className="w-full h-10 px-3 rounded-lg border border-border bg-background text-right"
-                dir="rtl"
-                value={alimonyFrequency}
-                onChange={(e) => setAlimonyFrequency(e.target.value)}
-              >
-                <option value="شهري">شهري</option>
-                <option value="ربع سنوي">ربع سنوي</option>
-                <option value="نصف سنوي">نصف سنوي</option>
-                <option value="سنوي">سنوي</option>
-              </select>
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">حالة السداد</label>
-              <select 
-                className="w-full h-10 px-3 rounded-lg border border-border bg-background text-right"
-                dir="rtl"
-                value={alimonyStatus}
-                onChange={(e) => setAlimonyStatus(e.target.value)}
-              >
-                <option value="منتظمة">منتظمة</option>
-                <option value="متأخرة">متأخرة</option>
-                <option value="متوقفة">متوقفة</option>
-                <option value="غير محددة">غير محددة</option>
-              </select>
-            </div>
-          </div>
-        </Card>
-
-        {/* Father Information */}
-        <Card className="p-5 bg-card border-border">
-          <h3 className="mb-4">بيانات الأب</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 text-sm">الاسم الكامل</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل الاسم الكامل" 
-                className="text-right" 
-                dir="rtl" 
-                value={fatherName}
-                onChange={(e) => setFatherName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">الرقم القومي</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل الرقم القومي" 
-                className="text-right" 
-                dir="rtl" 
-                value={fatherNationalId}
-                onChange={(e) => setFatherNationalId(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">رقم الجوال</label>
-              <Input 
-                type="tel" 
-                placeholder="05xxxxxxxx" 
-                className="text-right" 
-                dir="rtl" 
-                value={fatherPhone}
-                onChange={(e) => setFatherPhone(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">الوظيفة</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل الوظيفة" 
-                className="text-right" 
-                dir="rtl" 
-                value={fatherJob}
-                onChange={(e) => setFatherJob(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">العنوان</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل العنوان" 
-                className="text-right" 
-                dir="rtl" 
-                value={fatherAddress}
-                onChange={(e) => setFatherAddress(e.target.value)}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Mother Information */}
-        <Card className="p-5 bg-card border-border">
-          <h3 className="mb-4">بيانات الأم</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 text-sm">الاسم الكامل</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل الاسم الكامل" 
-                className="text-right" 
-                dir="rtl" 
-                value={motherName}
-                onChange={(e) => setMotherName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">الرقم القومي</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل الرقم القومي" 
-                className="text-right" 
-                dir="rtl" 
-                value={motherNationalId}
-                onChange={(e) => setMotherNationalId(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">رقم الجوال</label>
-              <Input 
-                type="tel" 
-                placeholder="05xxxxxxxx" 
-                className="text-right" 
-                dir="rtl" 
-                value={motherPhone}
-                onChange={(e) => setMotherPhone(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">الوظيفة</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل الوظيفة" 
-                className="text-right" 
-                dir="rtl" 
-                value={motherJob}
-                onChange={(e) => setMotherJob(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm">العنوان</label>
-              <Input 
-                type="text" 
-                placeholder="أدخل العنوان" 
-                className="text-right" 
-                dir="rtl" 
-                value={motherAddress}
-                onChange={(e) => setMotherAddress(e.target.value)}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Children Information */}
-        <Card className="p-5 bg-card border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h3>بيانات الأطفال</h3>
-            <Button 
-              onClick={addChild}
-              variant="outline"
-              size="sm"
-              className="text-secondary border-secondary"
-            >
-              <Plus className="w-4 h-4 ml-1" />
-              إضافة طفل
-            </Button>
-          </div>
-          <div className="space-y-4">
-            {children.map((child, index) => (
-              <div key={child.id} className="bg-muted/30 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm">الطفل {index + 1}</span>
-                  {children.length > 1 && (
-                    <button 
-                      onClick={() => removeChild(child.id)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+        {/* 🌟 الصف الأول: الأب والأم (عمودين متساويين) 🌟 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* بيانات الأب */}
+            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 group hover:border-blue-200 transition-all">
+                <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-3 border-b pb-4"><Users className="text-blue-600" /> بيانات الأب</h3>
+                <div className="space-y-4">
+                    <input type="text" name="fullName" placeholder="الاسم الرباعي" value={father.fullName} onChange={handleFatherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-100" />
+                    <input type="text" name="nationalId" placeholder="الرقم القومي" maxLength="14" value={father.nationalId} onChange={handleFatherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none font-mono" />
+                    <input type="tel" name="phone" placeholder="رقم الهاتف" value={father.phone} onChange={handleFatherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none" />
+                    <input type="text" name="job" placeholder="الوظيفة" value={father.job} onChange={handleFatherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none" />
+                    <input type="text" name="address" placeholder="العنوان" value={father.address} onChange={handleFatherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none" />
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block mb-2 text-sm">الاسم</label>
-                    <Input 
-                      type="text" 
-                      placeholder="اسم الطفل" 
-                      className="text-right" 
-                      dir="rtl" 
-                      value={child.name}
-                      onChange={(e) => updateChild(child.id, 'name', e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block mb-2 text-sm">العمر</label>
-                      <Input 
-                        type="number" 
-                        placeholder="العمر" 
-                        className="text-right" 
-                        dir="rtl" 
-                        value={child.age}
-                        onChange={(e) => updateChild(child.id, 'age', e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block mb-2 text-sm">الجنس</label>
-                      <select className="w-full h-10 px-3 rounded-lg border border-border bg-background text-right"
-                        value={child.gender}
-                        onChange={(e) => updateChild(child.id, 'gender', e.target.value)}
-                      >
-                        <option>ذكر</option>
-                        <option>أنثى</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">قرار الحضانة</label>
-                    <select className="w-full h-10 px-3 rounded-lg border border-border bg-background text-right" dir="rtl"
-                      value={child.custodyDecision}
-                      onChange={(e) => updateChild(child.id, 'custodyDecision', e.target.value)}
+            </div>
+
+            {/* بيانات الأم */}
+            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 group hover:border-pink-200 transition-all">
+                <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-3 border-b pb-4"><Users className="text-pink-600" /> بيانات الأم</h3>
+                <div className="space-y-4">
+                    <input type="text" name="fullName" placeholder="الاسم الرباعي" value={mother.fullName} onChange={handleMotherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-pink-100" />
+                    <input type="text" name="nationalId" placeholder="الرقم القومي" maxLength="14" value={mother.nationalId} onChange={handleMotherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none font-mono" />
+                    <input type="tel" name="phone" placeholder="رقم الهاتف" value={mother.phone} onChange={handleMotherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none" />
+                    <input type="text" name="job" placeholder="الوظيفة" value={mother.job} onChange={handleMotherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none" />
+                    <input type="text" name="address" placeholder="العنوان" value={mother.address} onChange={handleMotherChange} className="w-full p-3 bg-gray-50 rounded-xl border-none" />
+                </div>
+            </div>
+            
+        </div>
+
+        {/* 🌟 الصف الثاني: كارت إضافة الأطفال بعرض الشاشة بالكامل 🌟 */}
+        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 w-full">
+            <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-4 border-b pb-4"><Baby className="text-green-600" /> بيانات الأطفال</h3>
+            <div className="bg-gray-50 p-6 rounded-3xl mb-6 border border-gray-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <input type="text" value={newChild.name} onChange={(e) => setNewChild({...newChild, name: e.target.value})} className="w-full p-3 bg-white rounded-xl border-none" placeholder="اسم الطفل" />
+                    <input type="date" value={newChild.birthDate} onChange={(e) => setNewChild({...newChild, birthDate: e.target.value})} className="w-full p-3 bg-white rounded-xl border-none" />
+                    <select value={newChild.gender} onChange={(e) => setNewChild({...newChild, gender: e.target.value})} className="w-full p-3 bg-white rounded-xl border-none"><option value="Male">ذكر</option><option value="Female">أنثى</option></select>
+                    <input type="text" value={newChild.studentCode} onChange={(e) => setNewChild({...newChild, studentCode: e.target.value})} className="w-full p-3 bg-white rounded-xl border-none" placeholder="كود الطالب" />
+                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <select 
+                        value={newChild.school} 
+                        onChange={(e) => setNewChild({...newChild, school: e.target.value})} 
+                        className="w-full p-3 bg-white rounded-xl border-none text-gray-600 text-sm"
                     >
-                      <option value="">اختر قرار الحضانة</option>
-                      <option value="الأم">الأم</option>
-                      <option value="الأب">الأب</option>
-                      <option value="مشترك">مشترك</option>
-                      <option value="طرف ثالث">طرف ثالث (جد/جدة)</option>
+                        <option value="">اختر المدرسة (اختياري)...</option>
+                        {schoolsList.map(school => (
+                            <option key={school.id} value={school.id}>
+                                {school.name}
+                            </option>
+                        ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">كود الطالب</label>
-                    <Input 
-                      type="text" 
-                      placeholder="أدخل كود الطالب (مثال: STD-2024-001)" 
-                      className="text-right font-mono" 
-                      dir="rtl" 
-                      value={child.studentCode}
-                      onChange={(e) => updateChild(child.id, 'studentCode', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">المدرسة</label>
-                    <Input 
-                      type="text" 
-                      placeholder="اسم المدرسة" 
-                      className="text-right" 
-                      dir="rtl" 
-                      value={child.school}
-                      onChange={(e) => updateChild(child.id, 'school', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-sm">كود المدرسة</label>
-                    <Input 
-                      type="text" 
-                      placeholder="أدخل كود المدرسة (مثال: SCH-CAI-001)" 
-                      className="text-right font-mono" 
-                      dir="rtl" 
-                      value={child.schoolCode}
-                      onChange={(e) => updateChild(child.id, 'schoolCode', e.target.value)}
-                    />
-                  </div>
+                    <button onClick={addChild} className="w-full bg-green-600 text-white p-3 rounded-xl font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-100"><UserPlus size={20} /> إضافة الطفل للقائمة</button>
                 </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+            </div>
 
-        {/* Save Button */}
-        <Button 
-          onClick={onSave}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-        >
-          {isEditMode ? 'حفظ التعديلات' : 'حفظ بيانات الأسرة'}
-        </Button>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {children.length > 0 ? children.map((child) => (
+                    <div key={child.id} className="flex items-center justify-between bg-white border border-gray-100 p-4 rounded-2xl shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${child.gender === 'Male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}><Baby /></div>
+                            <div>
+                                <p className="font-bold text-gray-800">{child.name}</p>
+                                <span className="text-xs text-gray-500">{child.birthDate} • {getSchoolName(child.school)} {child.studentCode ? ` (${child.studentCode})` : ''}</span>
+                            </div>
+                        </div>
+                        <button onClick={() => removeChild(child.id)} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors"><Trash2 size={18}/></button>
+                    </div>
+                )) : <p className="col-span-full text-center text-gray-400 py-8 border border-dashed rounded-2xl">لم يتم إضافة أطفال بعد</p>}
+            </div>
+        </div>
+
+        {/* أزرار الإجراءات */}
+        <div className="mt-10 pt-6 border-t border-gray-200 flex gap-4 pb-10">
+            <button onClick={handleSubmit} disabled={loading} className="flex-1 bg-[#1e3a8a] text-white h-16 rounded-2xl font-bold text-xl hover:bg-blue-800 transition-all shadow-xl flex items-center justify-center gap-3 disabled:opacity-70">
+                {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Save className="w-7 h-7" />}
+                {loading ? 'جاري الحفظ والإنشاء...' : 'حفظ وإنشاء الملف'}
+            </button>
+            <button onClick={onBack} disabled={loading} className="w-48 bg-white text-gray-600 border border-gray-200 h-16 rounded-2xl font-bold hover:bg-gray-50 transition-all text-lg">إلغاء</button>
+        </div>
       </div>
     </div>
   );

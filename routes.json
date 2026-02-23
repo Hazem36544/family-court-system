@@ -1,0 +1,7 @@
+{
+  "/api/courts/me/families": "/families",
+  "/api/families": "/families",
+  "/api/court-cases": "/court-cases",
+  "/api/visitations": "/visitations",
+  "/api/courts/me/complaints": "/complaints"
+}

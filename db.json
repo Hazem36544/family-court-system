@@ -1,0 +1,46 @@
+{
+  "families": {
+    "father": {
+      "fullName": "محمود محمد احمد علي",
+      "nationalId": "12345678912345",
+      "phone": "01104759832",
+      "email": "",
+      "job": "مهندس",
+      "address": "القاهرة-المعادي",
+      "birthDate": "",
+      "gender": "Male"
+    },
+    "mother": {
+      "fullName": "فاطمه محمود مصطفي جمال",
+      "nationalId": "98765432198765",
+      "phone": "01104962538",
+      "email": "",
+      "job": "معلمة",
+      "address": "القاهرة-مدينة نصر",
+      "birthDate": "",
+      "gender": "Female"
+    },
+    "children": [
+      {
+        "fullName": "احمد محمود محمد",
+        "birthDate": "2012-01-02",
+        "gender": "Male",
+        "schoolName": "مدينة نصر",
+        "schoolCode": "",
+        "custody": "الأم"
+      }
+    ]
+  },
+  "court-cases": [],
+  "visitations": [],
+  "complaints": {
+    "totalCount": 1,
+    "items": [
+      {
+        "id": 1,
+        "title": "شكوى تأخر نفقة",
+        "status": "Pending"
+      }
+    ]
+  }
+}

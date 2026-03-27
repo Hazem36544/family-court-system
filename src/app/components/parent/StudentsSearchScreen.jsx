@@ -5,139 +5,140 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 
+// Translated mock data
 const mockStudents = [
   {
     id: 'ST-001',
     studentCode: 'STD-2024-001',
-    name: 'أحمد محمد علي',
-    grade: 'الصف الثالث الابتدائي',
+    name: 'Ahmed Mohamed Ali',
+    grade: 'Primary 3',
     class: '3',
     age: 9,
-    guardianName: 'محمد علي السيد',
+    guardianName: 'Mohamed Ali Elsayed',
     caseNumber: 'CASE-12345',
-    status: 'نشط'
+    status: 'Active'
   },
   {
     id: 'ST-002',
     studentCode: 'STD-2024-002',
-    name: 'فاطمة حسن محمود',
-    grade: 'الصف الرابع الابتدائي',
+    name: 'Fatima Hassan Mahmoud',
+    grade: 'Primary 4',
     class: '4',
     age: 10,
-    guardianName: 'حسن محمود أحمد',
+    guardianName: 'Hassan Mahmoud Ahmed',
     caseNumber: 'CASE-12346',
-    status: 'متابعة'
+    status: 'Follow-up'
   },
   {
     id: 'ST-003',
     studentCode: 'STD-2024-003',
-    name: 'عمر خالد يوسف',
-    grade: 'الصف الثاني الابتدائي',
+    name: 'Omar Khaled Youssef',
+    grade: 'Primary 2',
     class: '2',
     age: 8,
-    guardianName: 'خالد يوسف إبراهيم',
+    guardianName: 'Khaled Youssef Ibrahim',
     caseNumber: 'CASE-12347',
-    status: 'نشط'
+    status: 'Active'
   },
   {
     id: 'ST-004',
     studentCode: 'STD-2024-004',
-    name: 'مريم سعيد أحمد',
-    grade: 'الصف الخامس الابتدائي',
+    name: 'Maryam Saeed Ahmed',
+    grade: 'Primary 5',
     class: '5',
     age: 11,
-    guardianName: 'سعيد أحمد حسن',
+    guardianName: 'Saeed Ahmed Hassan',
     caseNumber: 'CASE-12348',
-    status: 'حالة خاصة'
+    status: 'Special Case'
   },
   {
     id: 'ST-005',
     studentCode: 'STD-2024-005',
-    name: 'يوسف عبدالله محمد',
-    grade: 'الصف الثالث الابتدائي',
+    name: 'Youssef Abdallah Mohamed',
+    grade: 'Primary 3',
     class: '3',
     age: 9,
-    guardianName: 'عبدالله محمد سالم',
+    guardianName: 'Abdallah Mohamed Salem',
     caseNumber: 'CASE-12349',
-    status: 'نشط'
+    status: 'Active'
   },
   {
     id: 'ST-006',
     studentCode: 'STD-2024-006',
-    name: 'نور الدين طارق',
-    grade: 'الصف السادس الابتدائي',
+    name: 'Nour Eldin Tarek',
+    grade: 'Primary 6',
     class: '6',
     age: 12,
-    guardianName: 'طارق فهمي علي',
+    guardianName: 'Tarek Fahmy Ali',
     caseNumber: 'CASE-12350',
-    status: 'متابعة'
+    status: 'Follow-up'
   },
   {
     id: 'ST-007',
-    name: 'سارة أحمد محمد',
-    grade: 'الصف الأول الإعدادي',
+    name: 'Sarah Ahmed Mohamed',
+    grade: 'Prep 1',
     class: '7',
     age: 13,
-    guardianName: 'أحمد محمد حسن',
+    guardianName: 'Ahmed Mohamed Hassan',
     caseNumber: 'CASE-12351',
-    status: 'نشط'
+    status: 'Active'
   },
   {
     id: 'ST-008',
-    name: 'محمد عبدالرحمن',
-    grade: 'الصف الثاني الإعدادي',
+    name: 'Mohamed Abdelrahman',
+    grade: 'Prep 2',
     class: '8',
     age: 14,
-    guardianName: 'عبدالرحمن سالم',
+    guardianName: 'Abdelrahman Salem',
     caseNumber: 'CASE-12352',
-    status: 'متابعة'
+    status: 'Follow-up'
   },
   {
     id: 'ST-009',
-    name: 'ليلى حسام',
-    grade: 'الصف الأول الثانوي',
+    name: 'Laila Hossam',
+    grade: 'Secondary 1',
     class: '10',
     age: 16,
-    guardianName: 'حسام محمود',
+    guardianName: 'Hossam Mahmoud',
     caseNumber: 'CASE-12353',
-    status: 'نشط'
+    status: 'Active'
   },
   {
     id: 'ST-010',
-    name: 'كريم سامي',
-    grade: 'الصف الأول الابتدائي',
+    name: 'Karim Samy',
+    grade: 'Primary 1',
     class: '1',
     age: 7,
-    guardianName: 'سامي أحمد',
+    guardianName: 'Samy Ahmed',
     caseNumber: 'CASE-12354',
-    status: 'نشط'
+    status: 'Active'
   }
 ];
 
 export function StudentsSearchScreen({ onBack }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState('الكل');
-  const [selectedClass, setSelectedClass] = useState('الكل');
+  const [selectedGrade, setSelectedGrade] = useState('All');
+  const [selectedClass, setSelectedClass] = useState('All');
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
   const [showClassDropdown, setShowClassDropdown] = useState(false);
 
-  const grades = ['الكل', 'الصف الأول الابتدائي', 'الصف الثاني الابتدائي', 'الصف الثالث الابتدائي', 'الصف الرابع الابتدائي', 'الصف الخامس الابتدائي', 'الصف السادس الابتدائي', 'الصف الأول الإعدادي', 'الصف الثاني الإعدادي', 'الصف الثالث الإعدادي', 'الصف الأول الثانوي', 'الصف الثاني الثانوي', 'الصف الثالث الثانوي'];
-  const classes = ['الكل', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+  const grades = ['All', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'Prep 1', 'Prep 2', 'Prep 3', 'Secondary 1', 'Secondary 2', 'Secondary 3'];
+  const classes = ['All', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
   const filteredStudents = mockStudents.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGrade = selectedGrade === 'الكل' || student.grade === selectedGrade;
-    const matchesClass = selectedClass === 'الكل' || student.class === selectedClass;
+    const matchesGrade = selectedGrade === 'All' || student.grade === selectedGrade;
+    const matchesClass = selectedClass === 'All' || student.class === selectedClass;
     return matchesSearch && matchesGrade && matchesClass;
   });
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'نشط':
+      case 'Active':
         return 'bg-green-100 text-green-700 border-green-200';
-      case 'متابعة':
+      case 'Follow-up':
         return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'حالة خاصة':
+      case 'Special Case':
         return 'bg-red-100 text-red-700 border-red-200';
       default:
         return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -145,12 +146,12 @@ export function StudentsSearchScreen({ onBack }) {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-6" dir="rtl">
+    <div className="min-h-screen bg-background pb-6" dir="ltr">
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-8 shadow-lg mb-6">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl mb-2">البحث عن الطلاب</h1>
-          <p className="text-sm opacity-80">ابحث عن الطلاب المسجلين في المدرسة</p>
+          <h1 className="text-2xl mb-2">Student Search</h1>
+          <p className="text-sm opacity-80">Search for students registered at school</p>
         </div>
       </div>
 
@@ -159,23 +160,23 @@ export function StudentsSearchScreen({ onBack }) {
         <Card className="p-6 mb-6 bg-card border-border">
           <div className="flex items-center gap-2 mb-4">
             <Filter className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">البحث والفلترة</h2>
+            <h2 className="text-lg font-semibold">Search & Filter</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Search Box */}
             <div className="relative">
               <label className="block text-sm text-muted-foreground mb-2">
-                اسم الطالب
+                Student Name
               </label>
               <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="ابحث عن طالب..."
-                  className="w-full pr-10 pl-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Search for a student..."
+                  className="w-full pr-4 pl-10 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -183,7 +184,7 @@ export function StudentsSearchScreen({ onBack }) {
             {/* Grade Dropdown */}
             <div className="relative">
               <label className="block text-sm text-muted-foreground mb-2">
-                المرحلة الدراسية
+                Grade
               </label>
               <button
                 onClick={() => {
@@ -204,9 +205,8 @@ export function StudentsSearchScreen({ onBack }) {
                         setSelectedGrade(grade);
                         setShowGradeDropdown(false);
                       }}
-                      className={`w-full px-4 py-3 text-right hover:bg-muted/50 transition-colors ${
-                        selectedGrade === grade ? 'bg-primary/10 text-primary font-medium' : ''
-                      }`}
+                      className={`w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors ${selectedGrade === grade ? 'bg-primary/10 text-primary font-medium' : ''
+                        }`}
                     >
                       {grade}
                     </button>
@@ -218,7 +218,7 @@ export function StudentsSearchScreen({ onBack }) {
             {/* Class Dropdown */}
             <div className="relative">
               <label className="block text-sm text-muted-foreground mb-2">
-                رقم الفصل
+                Class No.
               </label>
               <button
                 onClick={() => {
@@ -239,9 +239,8 @@ export function StudentsSearchScreen({ onBack }) {
                         setSelectedClass(className);
                         setShowClassDropdown(false);
                       }}
-                      className={`w-full px-4 py-3 text-right hover:bg-muted/50 transition-colors ${
-                        selectedClass === className ? 'bg-primary/10 text-primary font-medium' : ''
-                      }`}
+                      className={`w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors ${selectedClass === className ? 'bg-primary/10 text-primary font-medium' : ''
+                        }`}
                     >
                       {className}
                     </button>
@@ -254,7 +253,7 @@ export function StudentsSearchScreen({ onBack }) {
           {/* Results Count */}
           <div className="mt-4 pt-4 border-t border-border">
             <p className="text-sm text-muted-foreground">
-              عدد النتائج: <span className="font-semibold text-primary">{filteredStudents.length}</span> من أصل {mockStudents.length} طالب
+              Results found: <span className="font-semibold text-primary">{filteredStudents.length}</span> out of {mockStudents.length} students
             </p>
           </div>
         </Card>
@@ -291,23 +290,23 @@ export function StudentsSearchScreen({ onBack }) {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
-                  <span className="text-muted-foreground">العمر: {student.age} سنوات</span>
+                  <span className="text-muted-foreground">Age: {student.age} years</span>
                 </div>
               </div>
 
               {/* Guardian Info */}
               <div className="mt-4 pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-1">ولي الأمر</p>
+                <p className="text-xs text-muted-foreground mb-1">Guardian</p>
                 <p className="text-sm font-medium mb-1">{student.guardianName}</p>
-                <p className="text-xs text-muted-foreground">القضية: {student.caseNumber}</p>
+                <p className="text-xs text-muted-foreground">Case: {student.caseNumber}</p>
               </div>
 
               {/* Action Button */}
-              <Button 
+              <Button
                 className="w-full mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
-                onClick={() => {/* Handle view details */}}
+                onClick={() => {/* Handle view details */ }}
               >
-                عرض التفاصيل
+                View Details
               </Button>
             </Card>
           ))}
@@ -319,9 +318,9 @@ export function StudentsSearchScreen({ onBack }) {
             <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="text-xl mb-2">لا توجد نتائج</h3>
+            <h3 className="text-xl mb-2">No results found</h3>
             <p className="text-muted-foreground">
-              لم يتم العثور على طلاب يطابقون معايير البحث
+              Could not find any students matching the search criteria
             </p>
           </Card>
         )}

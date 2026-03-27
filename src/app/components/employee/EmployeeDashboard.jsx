@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Briefcase, 
-  AlertTriangle, 
-  ChevronLeft, 
-  MessageSquare, 
+import {
+  Users,
+  Briefcase,
+  AlertTriangle,
+  ChevronRight,
+  MessageSquare,
   FileEdit,
   Scale,
-  Loader2 
+  Loader2
 } from 'lucide-react';
-import api from '../../../services/api'; 
+import api from '../../../services/api';
 
 export function EmployeeDashboard({ onNavigate }) {
   const [userData, setUserData] = useState(() => {
     const saved = localStorage.getItem('wesal_user_data');
-    return saved ? JSON.parse(saved) : { name: 'موظف المحكمة', employeeId: 'EMP-2026' };
+    return saved ? JSON.parse(saved) : { name: '', employeeId: '' };
   });
 
   const [statsData, setStatsData] = useState({
@@ -27,14 +27,14 @@ export function EmployeeDashboard({ onNavigate }) {
   const [recentActivities, setRecentActivities] = useState([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
 
-  // دالة مساعدة لجلب البيانات بأمان (عشان لو واحد باظ الباقي يكمل)
+  // Helper function to fetch data safely
   const safeFetch = async (url) => {
     try {
       const res = await api.get(url);
       return res.data;
     } catch (e) {
       console.warn(`Failed to fetch ${url}:`, e);
-      return { totalCount: 0, items: [] }; // رجع داتا فاضية لو فشل
+      return { totalCount: 0, items: [] }; // Return empty data on failure
     }
   };
 
@@ -43,11 +43,10 @@ export function EmployeeDashboard({ onNavigate }) {
       try {
         setLoadingActivities(true);
 
-        // 1. طلب القضايا (التعديل الجذري: شلنا الباراميترز مؤقتاً للتجربة)
-        // لو اشتغل، يبقى السيرفر كان مخنوق من الـ params الغلط
+        // 1. Fetch families/cases
         const familiesData = await safeFetch('/api/courts/me/families');
-        
-        // باقي الطلبات
+
+        // Other requests
         const complaintsData = await safeFetch('/api/courts/me/complaints?PageSize=1&PageNumber=1');
         const violationsData = await safeFetch('/api/obligation-alerts?PageSize=1&PageNumber=1');
         const requestsData = await safeFetch('/api/custody-requests?PageSize=1&PageNumber=1');
@@ -59,25 +58,25 @@ export function EmployeeDashboard({ onNavigate }) {
           requests: requestsData.totalCount || 0
         });
 
-        // 2. جلب النشاطات (برضه بأمان)
-        const visitsList = await safeFetch('/api/visitations?PageSize=5&PageNumber=1'); 
+        // 2. Fetch activities
+        const visitsList = await safeFetch('/api/visitations?PageSize=5&PageNumber=1');
         const complaintsList = await safeFetch('/api/courts/me/complaints?PageSize=5&PageNumber=1');
         const alertsList = await safeFetch('/api/obligation-alerts?PageSize=5&PageNumber=1');
 
         let mixed = [];
-        
-        // معالجة الزيارات
+
+        // Process visitations
         if (visitsList.items) {
           visitsList.items.forEach(item => mixed.push({
             id: item.id, type: 'visit',
             title: 'تم تسجيل زيارة جديدة',
-            desc: `زيارة بتاريخ ${new Date(item.startAt).toLocaleDateString('ar-EG')}`,
+            desc: `زيارة في ${new Date(item.startAt).toLocaleDateString('ar-EG')}`,
             date: item.startAt,
             icon: Users, color: 'bg-blue-100 text-blue-600'
           }));
         }
 
-        // معالجة الشكاوى
+        // Process complaints
         if (complaintsList.items) {
           complaintsList.items.forEach(item => mixed.push({
             id: item.id, type: 'complaint',
@@ -88,7 +87,7 @@ export function EmployeeDashboard({ onNavigate }) {
           }));
         }
 
-        // معالجة المخالفات
+        // Process violations
         if (alertsList.items) {
           alertsList.items.forEach(item => mixed.push({
             id: item.id, type: 'alert',
@@ -113,44 +112,43 @@ export function EmployeeDashboard({ onNavigate }) {
   }, []);
 
   const stats = [
-    { 
-      id: 'cases',
-      title: 'إجمالي القضايا', 
-      value: statsData.cases, 
-      icon: Briefcase, 
-      color: 'bg-blue-500',
-      screen: 'cases'
+    {
+      id: 'families',
+      title: 'الحالات (العائلات)',
+      value: statsData.cases,
+      icon: Users,
+      color: 'bg-blue-600',
+      screen: 'families-management'
     },
-    { 
+    {
       id: 'data-requests',
-      title: 'طلبات التعديل', 
-      value: statsData.requests, 
-      icon: FileEdit, 
+      title: 'طلبات التعديل',
+      value: statsData.requests,
+      icon: FileEdit,
       color: 'bg-green-600',
       screen: 'data-change-requests'
     },
-    { 
+    {
       id: 'complaints',
-      title: 'الشكاوى الجديدة', 
-      value: statsData.complaints, 
-      icon: MessageSquare, 
+      title: 'شكاوى جديدة',
+      value: statsData.complaints,
+      icon: MessageSquare,
       color: 'bg-orange-500',
       screen: 'complaints-management'
     },
-    { 
+    {
       id: 'violations',
-      title: 'المخالفات المعلقة', 
-      value: statsData.violations, 
-      icon: AlertTriangle, 
-      color: 'bg-destructive', 
+      title: 'مخالفات معلقة',
+      value: statsData.violations,
+      icon: AlertTriangle,
+      color: 'bg-destructive',
       screen: 'violations'
     },
   ];
 
   const quickActions = [
-    { label: 'إدارة القضايا', screen: 'cases' },
     { label: 'الشكاوى', screen: 'complaints-management' },
-    { label: 'طلبات تعديل البيانات', screen: 'data-change-requests' },
+    { label: 'طلبات الحضانة', screen: 'data-change-requests' },
     { label: 'المخالفات', screen: 'violations' },
   ];
 
@@ -168,8 +166,8 @@ export function EmployeeDashboard({ onNavigate }) {
   return (
     <div className="min-h-screen bg-gray-50/50" dir="rtl">
       <div className="max-w-7xl mx-auto px-6 py-8">
-        
-        {/* --- الهيدر --- */}
+
+        {/* --- Header --- */}
         <div className="relative w-full bg-[#1e3a8a] rounded-[2.5rem] p-8 text-white flex flex-col md:flex-row justify-between items-center overflow-hidden shadow-xl mb-10 transition-all hover:shadow-2xl hover:shadow-blue-900/20">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl pointer-events-none"></div>
@@ -178,14 +176,14 @@ export function EmployeeDashboard({ onNavigate }) {
             <div className="w-20 h-20 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur-md border border-white/10 shadow-inner transform rotate-3 hover:rotate-0 transition-all duration-300">
               <Scale className="w-10 h-10 text-white" />
             </div>
-            
+
             <div>
-              <p className="text-blue-200 text-sm font-medium mb-1 opacity-90">مرحباً بك،</p>
+              <p className="text-blue-200 text-sm font-medium mb-1 opacity-90">مرحباً،</p>
               <h1 className="text-2xl md:text-4xl font-bold mb-2 tracking-wide">{userData.name || 'موظف المحكمة'}</h1>
               <div className="flex items-center gap-3 text-blue-100 text-sm font-medium opacity-80">
                 <span className="flex items-center gap-1">
-                   <Briefcase className="w-4 h-4" />
-                   محكمة الأسرة - القاهرة
+                  <Briefcase className="w-4 h-4" />
+                  محكمة الأسرة - القاهرة
                 </span>
               </div>
             </div>
@@ -197,10 +195,10 @@ export function EmployeeDashboard({ onNavigate }) {
           </div>
         </div>
 
-        {/* --- الإحصائيات --- */}
+        {/* --- Statistics --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {stats.map((stat) => (
-            <div 
+            <div
               key={stat.id}
               onClick={() => onNavigate(stat.screen)}
               className="group p-6 cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-white border-none shadow-sm rounded-3xl overflow-hidden relative"
@@ -217,22 +215,22 @@ export function EmployeeDashboard({ onNavigate }) {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-right">
           <div className="lg:col-span-1">
             <h2 className="text-xl font-bold mb-5 text-gray-800 flex items-center gap-2">
-                <span className="w-2 h-8 bg-blue-600 rounded-full"></span>
-                الإجراءات السريعة
+              <span className="w-2 h-8 bg-blue-600 rounded-full"></span>
+              إجراءات سريعة
             </h2>
             <div className="space-y-3">
               {quickActions.map((action) => (
-                <div 
+                <div
                   key={action.label}
                   onClick={() => onNavigate(action.screen)}
                   className="p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all duration-200 hover:bg-blue-50/50 bg-white border-none shadow-sm rounded-2xl group"
                 >
                   <span className="text-gray-700 font-medium group-hover:text-blue-700 transition-colors">{action.label}</span>
                   <div className="bg-gray-100 p-2 rounded-full group-hover:bg-blue-100 transition-colors">
-                    <ChevronLeft className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+                    <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-blue-600 rotate-180" />
                   </div>
                 </div>
               ))}
@@ -241,19 +239,19 @@ export function EmployeeDashboard({ onNavigate }) {
 
           <div className="lg:col-span-2">
             <h2 className="text-xl font-bold mb-5 text-gray-800 flex items-center gap-2">
-                <span className="w-2 h-8 bg-orange-500 rounded-full"></span>
-                آخر النشاطات
+              <span className="w-2 h-8 bg-orange-500 rounded-full"></span>
+              الأنشطة الأخيرة
             </h2>
             <div className="p-6 bg-white border-none shadow-sm rounded-3xl min-h-[300px]">
               <div className="space-y-6">
-                
+
                 {loadingActivities ? (
                   <div className="flex flex-col items-center justify-center py-10 text-gray-400">
                     <Loader2 className="w-8 h-8 animate-spin mb-2" />
                     <p>جاري تحميل البيانات...</p>
                   </div>
                 ) : recentActivities.length === 0 ? (
-                  <p className="text-center text-gray-400 py-10">لا توجد نشاطات حديثة.</p>
+                  <p className="text-center text-gray-400 py-10">لا توجد أنشطة أخيرة.</p>
                 ) : (
                   recentActivities.map((activity, index) => {
                     const isLast = index === recentActivities.length - 1;
@@ -264,8 +262,8 @@ export function EmployeeDashboard({ onNavigate }) {
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
-                              <p className="text-base font-bold text-gray-800 mb-1">{activity.title}</p>
-                              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-500">{getTimeAgo(activity.date)}</span>
+                            <p className="text-base font-bold text-gray-800 mb-1">{activity.title}</p>
+                            <span className="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-500">{getTimeAgo(activity.date)}</span>
                           </div>
                           <p className="text-sm text-gray-500">{activity.desc}</p>
                         </div>

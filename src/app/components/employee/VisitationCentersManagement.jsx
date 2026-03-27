@@ -91,11 +91,10 @@ export function VisitationCentersManagement({ onNavigate, onBack }) {
 
           const staffRes = await api.post('/api/users/visit-center-staff', staffPayload);
           
-          // ✅ التعديل هنا: دمج بيانات الاستجابة مع الإيميل لضمان عرضه الصحيح في الـ UI
           setSuccessCredentials({
               ...staffRes.data,
-              loginEmail: formData.managerEmail, // الإيميل الذي سيستخدم في اللوجين
-              originalName: staffRes.data.username // نحتفظ بالاسم تحسباً لأي حاجة
+              loginEmail: formData.managerEmail, 
+              originalName: staffRes.data.username 
           }); 
           
           fetchCenters();
@@ -214,15 +213,29 @@ export function VisitationCentersManagement({ onNavigate, onBack }) {
                  <div className="space-y-5">
                     <h3 className="font-bold text-gray-500 text-xs uppercase tracking-wider border-b pb-2 flex items-center gap-2"><MapPin className="w-3 h-3 text-blue-500" /> بيانات المركز</h3>
                     <input type="text" placeholder="اسم المركز" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                    
                     <div className="grid grid-cols-2 gap-3">
                         <input type="text" placeholder="المحافظة" value={formData.governorate} onChange={e => setFormData({...formData, governorate: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
                         <input type="tel" placeholder="رقم الهاتف" value={formData.contactNumber} onChange={e => setFormData({...formData, contactNumber: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
                     </div>
+                    
                     <input type="text" placeholder="العنوان التفصيلي" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
-                    <div className="grid grid-cols-3 gap-2">
-                        <div className="col-span-1"><label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">فتح</label><input type="time" value={formData.openingTime} onChange={e => setFormData({...formData, openingTime: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border-none" /></div>
-                        <div className="col-span-1"><label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">إغلاق</label><input type="time" value={formData.closingTime} onChange={e => setFormData({...formData, closingTime: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border-none" /></div>
-                        <div className="col-span-1"><label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">القدرة</label><input type="number" value={formData.maxConcurrentVisits} onChange={e => setFormData({...formData, maxConcurrentVisits: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border-none text-center" /></div>
+                    
+                    {/* ✅ تم التعديل هنا: فصل أوقات العمل عن القدرة الاستيعابية لتوسيع المساحة */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-1">
+                            <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">وقت الفتح</label>
+                            <input type="time" value={formData.openingTime} onChange={e => setFormData({...formData, openingTime: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        </div>
+                        <div className="col-span-1">
+                            <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">وقت الإغلاق</label>
+                            <input type="time" value={formData.closingTime} onChange={e => setFormData({...formData, closingTime: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">القدرة الاستيعابية</label>
+                        <input type="number" placeholder="عدد الزيارات المتزامنة" value={formData.maxConcurrentVisits} onChange={e => setFormData({...formData, maxConcurrentVisits: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
                     </div>
                  </div>
 
@@ -262,7 +275,6 @@ export function VisitationCentersManagement({ onNavigate, onBack }) {
                 <div className="space-y-4 relative z-10">
                    <div className="flex justify-between items-center">
                       <div>
-                          {/* ✅ التعديل هنا: تغيير التسمية لبريد تسجيل الدخول وعرض الإيميل */}
                           <span className="text-[10px] text-blue-500 block mb-0.5 font-bold uppercase tracking-widest">بريد تسجيل الدخول</span>
                           <span className="text-base font-mono font-bold text-blue-900">{successCredentials.loginEmail}</span>
                       </div>

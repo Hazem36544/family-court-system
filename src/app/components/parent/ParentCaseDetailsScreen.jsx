@@ -5,7 +5,8 @@ import { Badge } from '../ui/badge';
 import { courtAPI, visitationAPI } from '/src/services/api'; // استيراد الخدمات
 import { toast } from 'react-hot-toast';
 
-export function ParentCaseDetailsScreen({ familyId, onBack }) {
+export function ParentCaseDetailsScreen({ caseData, onBack }) {
+  const familyId = caseData?.familyId;
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState({
     caseInfo: null,
@@ -42,11 +43,12 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
         const familyReq = courtAPI.getFamily(familyId);
         // 2. جلب بيانات القضية
         const caseReq = courtAPI.getCaseByFamily(familyId);
-        
+
         const [familyRes, caseRes] = await Promise.all([familyReq, caseReq]);
-        
+
         const familyData = familyRes.data;
-        const caseData = caseRes.data; // قد تكون null لو مفيش قضية لسه
+        const cData = caseRes.data;
+        const caseData = cData?.items ? cData.items[0] : (Array.isArray(cData) ? cData[0] : cData);
 
         let details = {
           family: familyData,
@@ -69,15 +71,27 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
             courtAPI.getCustodyByCourtCase(caseId),         // 1
             courtAPI.getVisitationScheduleByCourtCase(caseId), // 2
             visitationAPI.list({ FamilyId: familyId, PageSize: 10 }), // 3: آخر 10 زيارات
-            courtAPI.listPaymentsDueByFamily(familyId)      // 4: المدفوعات
           ]);
 
           // تفريغ النتائج
           if (results[0].status === 'fulfilled') details.alimony = results[0].value.data;
           if (results[1].status === 'fulfilled') details.custody = results[1].value.data;
           if (results[2].status === 'fulfilled') details.schedule = results[2].value.data;
-          if (results[3].status === 'fulfilled') details.visitations = results[3].value.data.items || [];
-          if (results[4].status === 'fulfilled') details.payments = results[4].value.data.items || [];
+          if (results[3].status === 'fulfilled') {
+            const vData = results[3].value.data;
+            details.visitations = vData.items || (Array.isArray(vData) ? vData : []);
+          }
+
+          // نجب المدفوعات لو فيه نفقة
+          if (details.alimony?.id) {
+            try {
+              const paymentsRes = await courtAPI.listPaymentsDueByAlimony(details.alimony.id, { PageSize: 50 });
+              const pData = paymentsRes.data;
+              details.payments = pData.items || (Array.isArray(pData) ? pData : []);
+            } catch (e) {
+              console.warn("Failed to fetch payments:", e);
+            }
+          }
         }
 
         setData(details);
@@ -97,11 +111,11 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
   // حساب الإحصائيات المالية محلياً
   const calculateFinancials = () => {
     if (!data.payments.length) return { totalOverdue: 0, monthsLate: 0, lastPayment: '-' };
-    
+
     // تصفية غير المدفوع والذي تاريخ استحقاقه فات
     const overdue = data.payments.filter(p => p.status !== 'Paid' && new Date(p.dueDate) < new Date());
     const totalOverdue = overdue.reduce((sum, curr) => sum + (curr.amount || 0), 0);
-    
+
     // آخر دفعة
     const paid = data.payments.filter(p => p.status === 'Paid').sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt));
     const lastPaymentDate = paid.length > 0 ? paid[0].paidAt?.split('T')[0] : 'لا يوجد';
@@ -135,14 +149,14 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
   if (!data.caseInfo) {
     return (
       <div className="min-h-screen bg-background p-8" dir="rtl">
-         <button onClick={onBack} className="mb-4 flex items-center gap-2 opacity-90 hover:opacity-100">
-            <ArrowRight className="w-5 h-5" /> <span>العودة</span>
-         </button>
-         <Card className="p-12 text-center">
-            <Scale className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-            <h2 className="text-xl font-bold">لا توجد قضية نشطة لهذه الأسرة</h2>
-            <p className="text-muted-foreground mt-2">يرجى إنشاء قضية جديدة من شاشة "فتح ملف أسرة".</p>
-         </Card>
+        <button onClick={onBack} className="mb-4 flex items-center gap-2 opacity-90 hover:opacity-100">
+          <ArrowRight className="w-5 h-5" /> <span>العودة</span>
+        </button>
+        <Card className="p-12 text-center">
+          <Scale className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-bold">لا توجد قضية نشطة لهذه الأسرة</h2>
+          <p className="text-muted-foreground mt-2">يرجى إنشاء قضية جديدة من شاشة "فتح ملف أسرة".</p>
+        </Card>
       </div>
     );
   }
@@ -152,14 +166,14 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-8 shadow-lg mb-6">
         <div className="max-w-7xl mx-auto">
-          <button 
-            onClick={onBack} 
+          <button
+            onClick={onBack}
             className="mb-4 flex items-center gap-2 opacity-90 hover:opacity-100 transition-opacity"
           >
-            <ArrowRight className="w-5 h-5" /> 
+            <ArrowRight className="w-5 h-5" />
             <span>العودة للرئيسية</span>
           </button>
-          
+
           <h1 className="text-2xl mb-2">تفاصيل القضية</h1>
           <p className="text-sm opacity-80 font-mono">{data.caseInfo.caseNumber || 'رقم القضية غير مسجل'}</p>
         </div>
@@ -180,7 +194,7 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                   {data.caseInfo.status === 'Active' ? 'نشطة' : data.caseInfo.status}
                 </Badge>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between py-2 border-b border-border">
                   <span className="text-sm text-muted-foreground">رقم القضية</span>
@@ -209,13 +223,13 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 <Users className="w-5 h-5 text-primary" />
                 قرار الحضانة
               </h2>
-              
+
               {data.custody ? (
                 <div className="bg-muted/30 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">صاحب الحضانة</span>
                     <span className="font-medium text-primary">
-                        {getParentName(data.custody.custodialParentId)}
+                      {getParentName(data.custody.custodialParentId)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -229,7 +243,7 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground bg-muted/20 rounded">
-                    لم يتم تسجيل قرار حضانة بعد
+                  لم يتم تسجيل قرار حضانة بعد
                 </div>
               )}
             </Card>
@@ -240,7 +254,7 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 <Calendar className="w-5 h-5 text-primary" />
                 جدول الزيارات
               </h2>
-              
+
               {data.schedule ? (
                 <div className="bg-muted/30 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -250,7 +264,7 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">التوقيت</span>
                     <span className="font-medium font-mono">
-                        {data.schedule.startTime?.substring(0, 5)} - {data.schedule.endTime?.substring(0, 5)}
+                      {data.schedule.startTime?.substring(0, 5)} - {data.schedule.endTime?.substring(0, 5)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -260,7 +274,7 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground bg-muted/20 rounded">
-                    لا يوجد جدول زيارة مسجل
+                  لا يوجد جدول زيارة مسجل
                 </div>
               )}
             </Card>
@@ -271,31 +285,31 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 <Calendar className="w-5 h-5 text-primary" />
                 سجل الزيارات (آخر 10)
               </h2>
-              
+
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {data.visitations.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-4">لا توجد زيارات مسجلة</p>
+                  <p className="text-center text-sm text-muted-foreground py-4">لا توجد زيارات مسجلة</p>
                 ) : (
-                    data.visitations.map((visit, index) => (
+                  data.visitations.map((visit, index) => (
                     <div key={visit.id || index} className={`p-4 rounded-lg border ${visit.status === 'Completed' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                        <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium">
-                                {new Date(visit.startAt).toLocaleDateString('ar-EG', { weekday: 'long' })}
+                              {new Date(visit.startAt).toLocaleDateString('ar-EG', { weekday: 'long' })}
                             </span>
                             <span className="text-xs text-muted-foreground">{visit.startAt?.split('T')[0]}</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                {visit.startAt?.split('T')[1].substring(0, 5)} - {visit.endAt?.split('T')[1].substring(0, 5)}
-                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {visit.startAt?.split('T')[1].substring(0, 5)} - {visit.endAt?.split('T')[1].substring(0, 5)}
+                          </p>
                         </div>
                         <Badge className={`${visit.status === 'Completed' ? 'bg-green-600' : 'bg-destructive'} text-white`}>
-                            {visit.status === 'Completed' ? 'تمت' : visit.status === 'Missed' ? 'لم يحضر' : visit.status}
+                          {visit.status === 'Completed' ? 'تمت' : visit.status === 'Missed' ? 'لم يحضر' : visit.status}
                         </Badge>
-                        </div>
+                      </div>
                     </div>
-                    ))
+                  ))
                 )}
               </div>
             </Card>
@@ -309,7 +323,7 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 <Users className="w-5 h-5 text-primary" />
                 معلومات الأطفال
               </h2>
-              
+
               <div className="space-y-3">
                 {data.children.map((child, index) => (
                   <div key={child.id || index} className="bg-muted/30 rounded-lg p-4 border border-border">
@@ -357,48 +371,48 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 <FileText className="w-5 h-5 text-primary" />
                 معلومات النفقة
               </h2>
-              
+
               {data.alimony ? (
                 <div className="space-y-3">
-                    <div className="flex items-center justify-between py-2 border-b border-border">
+                  <div className="flex items-center justify-between py-2 border-b border-border">
                     <span className="text-sm text-muted-foreground">المبلغ الدوري</span>
                     <span className="font-medium text-secondary text-lg">{data.alimony.amount} ج.م</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-border">
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-border">
                     <span className="text-sm text-muted-foreground">التكرار</span>
                     <span className="font-medium">{data.alimony.frequency === 'Monthly' ? 'شهري' : data.alimony.frequency}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-2">
+                  </div>
+                  <div className="flex items-center justify-between py-2">
                     <span className="text-sm text-muted-foreground">آخر دفعة</span>
                     <span className="font-medium">{financials.lastPayment}</span>
-                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground bg-muted/20 rounded">
-                    لم يتم تحديد نفقة لهذه القضية
+                  لم يتم تحديد نفقة لهذه القضية
                 </div>
               )}
             </Card>
 
             {/* Overdue Alimony - Calculated from Payments API */}
             {financials.totalOverdue > 0 && (
-                <Card className="p-6 border-destructive/50">
+              <Card className="p-6 border-destructive/50">
                 <h2 className="text-lg flex items-center gap-2 mb-4">
-                    <AlertCircle className="w-5 h-5 text-destructive" />
-                    المتأخرات المالية
+                  <AlertCircle className="w-5 h-5 text-destructive" />
+                  المتأخرات المالية
                 </h2>
 
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-muted-foreground">إجمالي المستحق:</span>
                     <span className="text-2xl font-bold text-destructive">{financials.totalOverdue} ج.م</span>
-                    </div>
-                    <div className="flex items-center justify-between">
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">عدد الدفعات المتأخرة:</span>
                     <Badge className="bg-destructive text-white">{financials.monthsLate} دفعات</Badge>
-                    </div>
+                  </div>
                 </div>
-                </Card>
+              </Card>
             )}
 
             {/* Payments History */}
@@ -407,35 +421,34 @@ export function ParentCaseDetailsScreen({ familyId, onBack }) {
                 <FileText className="w-5 h-5 text-primary" />
                 سجل الدفعات (الأحدث)
               </h2>
-              
+
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {data.payments.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-4">لا توجد سجلات دفع</p>
+                  <p className="text-center text-sm text-muted-foreground py-4">لا توجد سجلات دفع</p>
                 ) : (
-                    data.payments.map((payment, index) => (
-                    <div key={payment.id || index} className={`p-4 rounded-lg border ${
-                        payment.status === 'Paid' ? 'bg-green-50 border-green-200' : 
-                        'bg-red-50 border-red-200'
-                    }`}>
-                        <div className="flex items-start justify-between mb-2">
+                  data.payments.map((payment, index) => (
+                    <div key={payment.id || index} className={`p-4 rounded-lg border ${payment.status === 'Paid' ? 'bg-green-50 border-green-200' :
+                      'bg-red-50 border-red-200'
+                      }`}>
+                      <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium">{payment.dueDate?.split('T')[0]}</span>
                             <span className="text-lg font-bold">{payment.amount} ج.م</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">تاريخ الاستحقاق</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">تاريخ الاستحقاق</p>
                         </div>
                         <Badge className={`${payment.status === 'Paid' ? 'bg-green-600' : 'bg-destructive'} text-white`}>
-                            {payment.status === 'Paid' ? 'مدفوع' : 'غير مدفوع'}
+                          {payment.status === 'Paid' ? 'مدفوع' : 'غير مدفوع'}
                         </Badge>
+                      </div>
+                      {payment.paidAt && (
+                        <div className="mt-2 text-xs text-green-700 font-medium">
+                          تم الدفع في: {payment.paidAt.split('T')[0]}
                         </div>
-                        {payment.paidAt && (
-                            <div className="mt-2 text-xs text-green-700 font-medium">
-                                تم الدفع في: {payment.paidAt.split('T')[0]}
-                            </div>
-                        )}
+                      )}
                     </div>
-                    ))
+                  ))
                 )}
               </div>
             </Card>

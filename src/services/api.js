@@ -4,7 +4,7 @@ import axios from 'axios';
 /**
  * 1. الإعدادات الأساسية
  */
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://wesal.runasp.net'; 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://wesal.runasp.net';
 
 const api = axios.create({
     baseURL: BASE_URL,
@@ -21,7 +21,7 @@ api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('wesal_token');
         if (token) {
-            config.headers.Authorization = `Bearer ${token}`; 
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
@@ -38,7 +38,7 @@ api.interceptors.response.use(
             console.warn("Unauthorized access - redirecting to login...");
             // window.location.href = '/login'; 
         }
-        
+
         const serverError = error.response?.data;
         if (serverError) {
             const message = serverError.detail || serverError.title || "حدث خطأ في الاتصال";
@@ -59,7 +59,7 @@ export const authAPI = {
     loginSystemAdmin: (creds) => api.post('/api/auth/system-admin/sign-in', creds),
     loginParent: (creds) => api.post('/api/auth/parent/sign-in', creds),
     changePassword: (data) => api.patch('/api/users/change-password', data),
-    
+
     // محاكاة جلب المستخدم الحالي
     getCurrentUser: () => {
         const savedUser = localStorage.getItem('wesal_user_data');
@@ -71,31 +71,35 @@ export const authAPI = {
  * --- [ B. خدمات إدارة القضايا والأسر - Court Workflow ] ---
  */
 export const courtAPI = {
+    // 0. البروفايل (Profile)
+    getProfile: () => api.get('/api/court-staffs/me'),
+
     // 1. الأسرة (Families)
     enrollFamily: (data) => api.post('/api/families', data),
     getFamily: (id) => api.get(`/api/families/${id}`),
     searchFamilies: (params) => api.get('/api/courts/me/families', { params }),
-    
+
     // 2. أولياء الأمور (Parents)
+    getParent: (id) => api.get(`/api/parents/${id}`),
     updateParent: (id, data) => api.put(`/api/parents/${id}`, data),
 
     // 3. القضايا (Court Cases)
     createCase: (data) => api.post('/api/court-cases', data),
-    getCaseByFamily: (familyId) => api.get(`/api/court-cases/${familyId}`),
-    closeCase: (caseId, notes) => api.patch('/api/court-cases/close', { closureNotes: notes }, { params: { courtCaseId: caseId } }),
+    getCaseByFamily: (familyId) => api.get(`/api/families/${familyId}/court-cases`),
+    closeCase: (caseId, notes) => api.patch(`/api/court-cases/${caseId}/close`, { closureNotes: notes }),
 
     // 4. النفقة (Alimony)
     createAlimony: (data) => api.post('/api/alimonies', data),
     updateAlimony: (id, data) => api.put(`/api/alimonies/${id}`, data, { params: { alimoneyId: id } }),
     deleteAlimony: (id) => api.delete(`/api/alimonies/${id}`, { params: { alimoneyId: id } }),
     getAlimonyByCourtCase: (caseId) => api.get(`/api/court-cases/${caseId}/alimony`),
-    
+
     // 5. الحضانة (Custody)
     createCustody: (data) => api.post('/api/custodies', data),
     updateCustody: (id, data) => api.put(`/api/custodies/${id}`, data),
     deleteCustody: (id) => api.delete(`/api/custodies/${id}`),
     getCustodyByCourtCase: (caseId) => api.get(`/api/court-cases/${caseId}/custodies`),
-    
+
     // 6. جداول الزيارة (Schedules)
     createSchedule: (data) => api.post('/api/visitation-schedules', data),
     updateSchedule: (id, data) => api.put(`/api/visitation-schedules/${id}`, data),
@@ -103,9 +107,13 @@ export const courtAPI = {
     getVisitationScheduleByCourtCase: (caseId) => api.get(`/api/court-cases/${caseId}/visitation-schedules`),
 
     // 7. المستحقات المالية (Payments Due)
-    listPaymentsDueByFamily: (familyId) => api.get(`/api/families/${familyId}/payments-due`),
-    listPaymentsHistory: (paymentDueId) => api.get(`/api/payments-due/${paymentDueId}/payments`),
+    listPaymentsDueByAlimony: (alimonyId, params) => api.get(`/api/alimonies/${alimonyId}/payments-due`, { params }),
+    listPaymentsHistory: (paymentDueId, params) => api.get(`/api/payments-due/${paymentDueId}/payments`, { params }),
     withdrawPayment: (paymentDueId, data) => api.post(`/api/payments-due/${paymentDueId}/withdraw`, data),
+
+    // 8. الأطفال (Children)
+    addChild: (familyId, data) => api.post(`/api/families/${familyId}/children`, data),
+    removeChild: (familyId, childId) => api.delete(`/api/families/${familyId}/children`, { params: { childId } }),
 };
 
 /**
@@ -113,6 +121,7 @@ export const courtAPI = {
  */
 export const lookupAPI = {
     getVisitationLocations: (params) => api.get('/api/visitation-locations', { params }),
+    getLocation: (id) => api.get(`/api/visitation-locations/${id}`),
     createLocation: (data) => api.post('/api/visitation-locations', data),
     updateLocation: (id, data) => api.put(`/api/visitation-locations/${id}`, data),
     deleteLocation: (id) => api.delete(`/api/visitation-locations/${id}`),
@@ -183,7 +192,7 @@ export const commonAPI = {
     getUnreadNotificationsCount: () => api.get('/api/notifications/unread-count'),
     listNotifications: (params) => api.get('/api/notifications/me', { params }),
     markAsRead: (id) => api.patch(`/api/notifications/${id}/read`),
-    
+
     // الأجهزة
     registerDevice: (data) => api.post('/api/notifications/devices', data),
     unregisterDevice: (token) => api.delete(`/api/user-devices/${token}`),

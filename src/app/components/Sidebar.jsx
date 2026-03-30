@@ -1,27 +1,24 @@
 import React from 'react';
 import {
   Home,
-  Briefcase,
-  Users,
-  GraduationCap, // Schools icon
-  MapPin,        // Visitation Centers icon
-  FileEdit,
-  MessageSquare,
-  AlertTriangle,
-  User,
-  LogOut,
-  AlertOctagon
+  UserPlus,      // أيقونة الموظفين
+  Users,         // أيقونة العائلات
+  GraduationCap, // أيقونة المدارس
+  MapPin,        // أيقونة مراكز الرؤية
+  MessageSquare, // أيقونة الشكاوى
+  AlertOctagon,  // أيقونة المخالفات
+  User,          // أيقونة الحساب
+  LogOut
 } from 'lucide-react';
 
 export function Sidebar({ currentScreen, onNavigate, onLogout }) {
 
   const menuItems = [
     { id: 'home', label: 'الرئيسية', icon: Home },
-
+    { id: 'staff-management', label: 'الموظفين', icon: UserPlus }, // تمت إضافة شاشة الموظفين
+    { id: 'visitation-centers', label: 'مراكز الرؤية', icon: MapPin },
+    { id: 'schools', label: 'المدارس', icon: GraduationCap },
     { id: 'families-management', label: 'العائلات', icon: Users },
-    { id: 'schools', label: 'المدارس', icon: GraduationCap }, // New Addition 1
-    { id: 'visitation-centers', label: 'مراكز الرؤية', icon: MapPin }, // New Addition 2
-    { id: 'data-change-requests', label: 'الطلبات', icon: FileEdit },
     { id: 'complaints-management', label: 'الشكاوى', icon: MessageSquare },
     { id: 'violations', label: 'المخالفات', icon: AlertOctagon },
     { id: 'account', label: 'الحساب', icon: User },
@@ -48,11 +45,8 @@ export function Sidebar({ currentScreen, onNavigate, onLogout }) {
         {menuItems.map((item) => {
           const Icon = item.icon;
 
-          // Check active state (including sub-navigations)
-          const isActive =
-            currentScreen === item.id ||
-            (item.id === 'families-management' && (currentScreen === 'new-family' || currentScreen === 'family-details')) ||
-            (item.id === 'cases' && currentScreen === 'case-details');
+          // شرط مبسط ومباشر لمعرفة الشاشة النشطة
+          const isActive = currentScreen === item.id;
 
           return (
             <button

@@ -1,32 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 
-// Component imports
+// Component imports (تم التعديل لتتناسب مع وجودهم في مجلد components مباشرة)
 import ScrollToTop from './components/ScrollToTop';
 import { LoginScreen } from './components/LoginScreen';
 import { Sidebar } from './components/Sidebar';
 import { AccountScreen } from './components/AccountScreen';
 
-// Employee Screens
-import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
-import { NewFamilyScreen } from './components/employee/NewFamilyScreen';
-
-import { CaseDetailsScreen } from './components/employee/CaseDetailsScreen';
-import { ViolationsScreen } from './components/employee/ViolationsScreen';
-import { DataChangeRequestsScreen } from './components/employee/DataChangeRequestsScreen';
-import { ComplaintsManagement } from './components/employee/ComplaintsManagement';
-import { SchoolsManagement } from './components/employee/SchoolsManagement';
-import { VisitationCentersManagement } from './components/employee/VisitationCentersManagement';
-import { FamiliesManagement } from './components/employee/FamiliesManagement';
-// Family details screen import
-import { FamilyDetailsScreen } from './components/employee/FamilyDetailsScreen';
-
-// Parent Screens
-import { ParentDashboard } from './components/parent/ParentDashboard';
-import { ComplaintScreen } from './components/parent/ComplaintScreen';
-import { SchoolReportsScreen } from './components/parent/SchoolReportsScreen';
-import { ParentCaseDetailsScreen } from './components/parent/ParentCaseDetailsScreen';
-import { StudentsSearchScreen } from './components/parent/StudentsSearchScreen';
+// Court Screens 
+import { CourtDashboard } from './components/court/CourtDashboard';
+import { StaffManagement } from './components/court/StaffManagement';
+import { SchoolsManagement } from './components/court/SchoolsManagement';
+import { VisitationCentersManagement } from './components/court/VisitationCentersManagement';
+import { FamiliesManagement } from './components/court/FamiliesManagement';
+import { ComplaintsManagement } from './components/court/ComplaintsManagement';
+import { ViolationsScreen } from './components/court/ViolationsScreen';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('wesal_token'));
@@ -34,6 +22,9 @@ export default function App() {
   // Role reading with error protection
   const [userRole, setUserRole] = useState(() => {
     try {
+      const explicitRole = localStorage.getItem('wesal_user_role');
+      if (explicitRole) return explicitRole;
+
       const savedData = localStorage.getItem('wesal_user_data');
       return savedData ? JSON.parse(savedData).role : null;
     } catch (e) {
@@ -44,7 +35,6 @@ export default function App() {
 
   const [currentScreen, setCurrentScreen] = useState(() => localStorage.getItem('current_screen') || 'home');
   const [screenData, setScreenData] = useState(null);
-  const [needsVerification, setNeedsVerification] = useState(false);
 
   // --- Login Handler ---
   const handleLogin = (role) => {
@@ -57,22 +47,8 @@ export default function App() {
     userData.role = role;
     localStorage.setItem('wesal_user_data', JSON.stringify(userData));
 
-    if (role === 'employee') {
-      setNeedsVerification(false);
-    }
-
     setCurrentScreen('home');
     localStorage.setItem('current_screen', 'home');
-  };
-
-  const handleVerificationSuccess = () => {
-    setNeedsVerification(false);
-    setIsLoggedIn(true);
-  };
-
-  const handleVerificationBack = () => {
-    setNeedsVerification(false);
-    handleLogout();
   };
 
   const handleLogout = () => {
@@ -81,11 +57,12 @@ export default function App() {
     setUserRole(null);
     setCurrentScreen('home');
     setScreenData(null);
-    setNeedsVerification(false);
 
     localStorage.removeItem('wesal_token');
     localStorage.removeItem('wesal_user_data');
+    localStorage.removeItem('wesal_user_role');
     localStorage.removeItem('current_screen');
+    localStorage.removeItem('force_change_password');
   };
 
   const handleNavigate = (screen, data) => {
@@ -103,98 +80,39 @@ export default function App() {
   const renderContent = () => {
     // 1. Not logged in state
     if (!isLoggedIn) {
-      if (needsVerification && userRole === 'employee') {
-        return <VerificationCodeScreen onVerify={handleVerificationSuccess} onBack={handleVerificationBack} />;
-      }
       return <LoginScreen onLogin={handleLogin} />;
     }
 
-    // 2. Employee Role
-    if (userRole === 'employee') {
+    // 2. Court Role
+    if (userRole === 'court') {
       return (
-        <div className="bg-background min-h-screen flex" style={{ fontFamily: 'Inter, sans-serif' }} dir="rtl">
-          <Sidebar currentScreen={currentScreen} onNavigate={handleNavigate} userRole="employee" onLogout={handleLogout} />
+        <div className="bg-[#F5F5F5] min-h-screen flex" style={{ fontFamily: 'Inter, Cairo, sans-serif' }} dir="rtl">
+          <Sidebar currentScreen={currentScreen} onNavigate={handleNavigate} onLogout={handleLogout} />
+          
           <div className="flex-1 mr-0 md:mr-28 transition-all duration-300 p-4">
-            {currentScreen === 'home' && <EmployeeDashboard onNavigate={handleNavigate} />}
-
-            {currentScreen === 'new-family' && (
-              <NewFamilyScreen
-                familyData={screenData}
-                onBack={() => handleNavigate(screenData ? 'families-management' : 'home')}
-                onSave={() => handleNavigate(screenData ? 'families-management' : 'home')}
-              />
-            )}
-
-            {currentScreen === 'edit-family' && (
-              <EditFamilyScreen
-                familyId={screenData?.familyId}
-                onBack={() => handleNavigate('families-management')}
-              />
-            )}
-
-            {currentScreen === 'families-management' && <FamiliesManagement onNavigate={handleNavigate} onBack={handleBack} />}
-
-            {/* Family details page rendering */}
-            {currentScreen === 'family-details' && (
-              <FamilyDetailsScreen
-                familyId={screenData?.familyId}
-                onNavigate={handleNavigate}
-                onBack={() => handleNavigate('families-management')}
-              />
-            )}
-
-            {currentScreen === 'case-details' && (
-              <CaseDetailsScreen
-                caseData={screenData}
-                onNavigate={handleNavigate}
-                onBack={() => handleNavigate('family-details', { familyId: screenData?.familyId })}
-              />
-            )}
-
+            {currentScreen === 'home' && <CourtDashboard onNavigate={handleNavigate} />}
+            {currentScreen === 'staff-management' && <StaffManagement onNavigate={handleNavigate} onBack={handleBack} />}
             {currentScreen === 'schools' && <SchoolsManagement onNavigate={handleNavigate} onBack={handleBack} />}
-
             {currentScreen === 'visitation-centers' && <VisitationCentersManagement onNavigate={handleNavigate} onBack={handleBack} />}
-
-            {currentScreen === 'violations' && <ViolationsScreen onBack={handleBack} />}
-            {currentScreen === 'account' && <AccountScreen userType="employee" onLogout={handleLogout} onBack={handleBack} />}
-            {currentScreen === 'data-change-requests' && <DataChangeRequestsScreen onNavigate={handleNavigate} onBack={handleBack} />}
+            {currentScreen === 'families-management' && <FamiliesManagement onNavigate={handleNavigate} onBack={handleBack} />}
             {currentScreen === 'complaints-management' && <ComplaintsManagement onNavigate={handleNavigate} onBack={handleBack} />}
+            {currentScreen === 'violations' && <ViolationsScreen onBack={handleBack} />}
+            {currentScreen === 'account' && <AccountScreen userType="court" onLogout={handleLogout} onBack={handleBack} />}
           </div>
         </div>
       );
     }
 
-    // 3. Parent or School Role
-    if (userRole === 'parent' || userRole === 'school') {
-      return (
-        <div className="bg-background min-h-screen flex" style={{ fontFamily: 'Inter, sans-serif' }} dir="rtl">
-          <Sidebar currentScreen={currentScreen} onNavigate={handleNavigate} userRole={userRole} onLogout={handleLogout} />
-          <div className="flex-1 mr-0 md:mr-28 transition-all duration-300 p-4">
-            {currentScreen === 'home' && <ParentDashboard onNavigate={handleNavigate} />}
-            {currentScreen === 'complaint' && <ComplaintScreen onBack={handleBack} onSubmit={handleBack} />}
-            {currentScreen === 'school-reports' && <SchoolReportsScreen onBack={handleBack} onNavigate={handleNavigate} />}
-            {currentScreen === 'case-details' && <ParentCaseDetailsScreen caseData={screenData} onBack={handleBack} />}
-            {currentScreen === 'students-search' && <StudentsSearchScreen onBack={handleBack} onSave={handleBack} />}
-            {currentScreen === 'account' && <AccountScreen userType={userRole} onLogout={handleLogout} onBack={handleBack} />}
-          </div>
-        </div>
-      );
-    }
-
-    // 4. Fallback Role
+    // 3. Fallback Role
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 text-center p-4">
-        <h1 className="text-2xl font-bold text-red-600 mb-4">Permission Error</h1>
-        <p className="mb-4 text-gray-700">You are logged in but the user type was not recognized.</p>
-        <div className="bg-white p-4 rounded shadow mb-4 text-left dir-ltr">
-          <p><strong>User Role:</strong> {String(userRole)}</p>
-          <p><strong>Token:</strong> {localStorage.getItem('wesal_token') ? 'Exists' : 'Missing'}</p>
-        </div>
+        <h1 className="text-2xl font-bold text-red-600 mb-4">خطأ في الصلاحيات</h1>
+        <p className="mb-4 text-gray-700">أنت مسجل دخول ولكن ليس لديك صلاحية مدير محكمة.</p>
         <button
           onClick={handleLogout}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          className="bg-[#1e3a8a] text-white px-6 py-2 rounded-lg hover:bg-blue-900 transition-all shadow-md"
         >
-          Sign Out & Start Over
+          تسجيل الخروج والعودة
         </button>
       </div>
     );

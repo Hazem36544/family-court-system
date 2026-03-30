@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ChevronRight, Plus, Search, MapPin, Phone, Loader2, 
-  CheckCircle, Copy, X, AlertCircle, Eye, Clock, Building2, UserCircle 
+  CheckCircle, Copy, X, AlertCircle, Eye, Clock, Building2, UserCircle, Fingerprint 
 } from 'lucide-react';
 import api from '../../../services/api'; 
 import { toast } from 'react-hot-toast';
@@ -12,11 +12,14 @@ export function VisitationCentersManagement({ onNavigate, onBack }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
+  // States للتحكم في الـ Modals والخطوات
   const [showAddModal, setShowAddModal] = useState(false);
+  const [modalStep, setModalStep] = useState(1); // 1: Center, 2: Staff
+  const [savedLocationId, setSavedLocationId] = useState(null); // لحفظ الـ UUID
+  
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCenter, setSelectedCenter] = useState(null);
-
   const [successCredentials, setSuccessCredentials] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -59,9 +62,10 @@ export function VisitationCentersManagement({ onNavigate, onBack }) {
       }
   }, [searchTerm, centers]);
 
-  const handleAddCenter = async () => {
-      if (!formData.name || !formData.address || !formData.managerFullName || !formData.managerEmail) {
-          setError("يرجى تعبئة بيانات المركز الأساسية وبيانات مدير المركز");
+  // دالة الخطوة الأولى: إنشاء المكان فقط
+  const handleCreateCenter = async () => {
+      if (!formData.name || !formData.address) {
+          setError("يرجى تعبئة بيانات المركز الأساسية");
           return;
       }
 
@@ -81,32 +85,65 @@ export function VisitationCentersManagement({ onNavigate, onBack }) {
 
           const centerRes = await api.post('/api/visitation-locations', centerPayload);
           const newLocationId = centerRes.data; 
+          
+          setSavedLocationId(newLocationId); // حفظ الـ UUID
+          setModalStep(2); // الانتقال للخطوة الثانية
+          fetchCenters(); // تحديث القائمة في الخلفية
+          
+      } catch (err) {
+          console.error("Center Creation Error:", err);
+          setError(err.response?.data?.detail || err.response?.data?.title || "فشل في تسجيل بيانات المركز.");
+      } finally {
+          setIsSaving(false);
+      }
+  };
 
+  // دالة الخطوة الثانية: إنشاء الموظف وربطه بالمكان
+  const handleCreateStaff = async () => {
+      if (!formData.managerFullName || !formData.managerEmail) {
+          setError("يرجى تعبئة بيانات مدير المركز");
+          return;
+      }
+
+      setIsSaving(true);
+      setError(null);
+
+      try {
           const staffPayload = {
               email: formData.managerEmail,
               fullName: formData.managerFullName,
               phone: formData.managerPhone || formData.contactNumber,
-              locationId: newLocationId 
+              locationId: savedLocationId 
           };
 
           const staffRes = await api.post('/api/users/visit-center-staff', staffPayload);
           
+          // عرض بيانات الدخول
           setSuccessCredentials({
               ...staffRes.data,
               loginEmail: formData.managerEmail, 
               originalName: staffRes.data.username 
           }); 
           
-          fetchCenters();
-          setShowAddModal(false);
-          setFormData({ name: '', address: '', governorate: 'القاهرة', contactNumber: '', maxConcurrentVisits: 10, openingTime: '09:00', closingTime: '17:00', managerFullName: '', managerEmail: '', managerPhone: '' });
+          // تصفير الـ Modal بعد النجاح
+          closeModal();
           
       } catch (err) {
-          console.error("Registration Error:", err);
-          setError(err.response?.data?.detail || err.response?.data?.title || "فشل في إتمام عملية التسجيل.");
+          console.error("Staff Creation Error:", err);
+          setError(err.response?.data?.detail || err.response?.data?.title || "فشل في تسجيل حساب المدير.");
       } finally {
           setIsSaving(false);
       }
+  };
+
+  const closeModal = () => {
+      setShowAddModal(false);
+      setTimeout(() => {
+          setModalStep(1);
+          setSavedLocationId(null);
+          setError(null);
+          setFormData({ name: '', address: '', governorate: 'القاهرة', contactNumber: '', maxConcurrentVisits: 10, openingTime: '09:00', closingTime: '17:00', managerFullName: '', managerEmail: '', managerPhone: '' });
+      }, 300); // تأخير بسيط لضمان اختفاء الـ Modal أولاً
   };
 
   const copyToClipboard = (text) => {
@@ -198,63 +235,96 @@ export function VisitationCentersManagement({ onNavigate, onBack }) {
         )}
       </div>
 
-      {/* ✅ Pop-up إضافة مركز رؤية جديد */}
+      {/* ✅ Pop-up إضافة مركز رؤية (Wizard System) */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
            <div className="w-full max-w-2xl bg-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
-              <div className="bg-gray-50 p-6 border-b border-gray-100 flex justify-between items-center">
+              <div className="bg-gray-50 p-6 border-b border-gray-100 flex justify-between items-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 h-1 bg-blue-500 transition-all duration-500" style={{width: modalStep === 1 ? '50%' : '100%'}}></div>
                   <h2 className="text-xl font-bold text-[#1e3a8a] flex items-center gap-2">
-                      <Building2 className="w-6 h-6" /> تسجيل مركز رؤية ومسؤول جديد
+                      {modalStep === 1 ? <Building2 className="w-6 h-6" /> : <UserCircle className="w-6 h-6" />} 
+                      {modalStep === 1 ? 'الخطوة 1: بيانات مركز الرؤية' : 'الخطوة 2: حساب المدير المسؤول'}
                   </h2>
-                  <button onClick={() => setShowAddModal(false)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-400 hover:text-gray-800 shadow-sm border border-gray-100"><X className="w-5 h-5" /></button>
+                  {modalStep === 1 && (
+                      <button onClick={closeModal} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-400 hover:text-gray-800 shadow-sm border border-gray-100"><X className="w-5 h-5" /></button>
+                  )}
               </div>
               
-              <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                 <div className="space-y-5">
-                    <h3 className="font-bold text-gray-500 text-xs uppercase tracking-wider border-b pb-2 flex items-center gap-2"><MapPin className="w-3 h-3 text-blue-500" /> بيانات المركز</h3>
-                    <input type="text" placeholder="اسم المركز" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                        <input type="text" placeholder="المحافظة" value={formData.governorate} onChange={e => setFormData({...formData, governorate: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
-                        <input type="tel" placeholder="رقم الهاتف" value={formData.contactNumber} onChange={e => setFormData({...formData, contactNumber: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
-                    </div>
-                    
-                    <input type="text" placeholder="العنوان التفصيلي" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
-                    
-                    {/* ✅ تم التعديل هنا: فصل أوقات العمل عن القدرة الاستيعابية لتوسيع المساحة */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-1">
-                            <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">وقت الفتح</label>
-                            <input type="time" value={formData.openingTime} onChange={e => setFormData({...formData, openingTime: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+              <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                 {/* الخطوة الأولى: المكان */}
+                 {modalStep === 1 && (
+                     <div className="space-y-5 animate-in slide-in-from-right duration-300">
+                        <input type="text" placeholder="اسم المركز" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <input type="text" placeholder="المحافظة" value={formData.governorate} onChange={e => setFormData({...formData, governorate: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                            <input type="tel" placeholder="رقم الهاتف" value={formData.contactNumber} onChange={e => setFormData({...formData, contactNumber: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
                         </div>
-                        <div className="col-span-1">
-                            <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">وقت الإغلاق</label>
-                            <input type="time" value={formData.closingTime} onChange={e => setFormData({...formData, closingTime: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        
+                        <input type="text" placeholder="العنوان التفصيلي" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-1">
+                                <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">وقت الفتح</label>
+                                <input type="time" value={formData.openingTime} onChange={e => setFormData({...formData, openingTime: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">وقت الإغلاق</label>
+                                <input type="time" value={formData.closingTime} onChange={e => setFormData({...formData, closingTime: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                            </div>
                         </div>
-                    </div>
 
-                    <div>
-                        <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">القدرة الاستيعابية</label>
-                        <input type="number" placeholder="عدد الزيارات المتزامنة" value={formData.maxConcurrentVisits} onChange={e => setFormData({...formData, maxConcurrentVisits: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
-                    </div>
-                 </div>
+                        <div>
+                            <label className="text-[10px] text-gray-500 mb-1 block mr-1 font-bold">القدرة الاستيعابية</label>
+                            <input type="number" placeholder="عدد الزيارات المتزامنة" value={formData.maxConcurrentVisits} onChange={e => setFormData({...formData, maxConcurrentVisits: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        </div>
+                     </div>
+                 )}
 
-                 <div className="space-y-5">
-                    <h3 className="font-bold text-gray-500 text-xs uppercase tracking-wider border-b pb-2 flex items-center gap-2"><UserCircle className="w-3 h-3 text-blue-500" /> حساب المدير المسؤول</h3>
-                    <input type="text" placeholder="اسم المسؤول الرباعي" value={formData.managerFullName} onChange={e => setFormData({...formData, managerFullName: e.target.value})} className="w-full p-4 bg-blue-50/50 rounded-2xl border border-blue-100 focus:ring-2 focus:ring-blue-200" />
-                    <input type="email" placeholder="البريد الإلكتروني المهني" value={formData.managerEmail} onChange={e => setFormData({...formData, managerEmail: e.target.value})} className="w-full p-4 bg-blue-50/50 rounded-2xl border border-blue-100 focus:ring-2 focus:ring-blue-200" />
-                    <input type="tel" placeholder="رقم هاتف المسؤول (اختياري)" value={formData.managerPhone} onChange={e => setFormData({...formData, managerPhone: e.target.value})} className="w-full p-4 bg-blue-50/50 rounded-2xl border border-blue-100 focus:ring-2 focus:ring-blue-200" />
-                    
-                    {error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl flex items-start gap-3 border border-red-100 animate-pulse"><AlertCircle className="w-5 h-5 flex-shrink-0" /> <span className="text-xs font-medium">{error}</span></div>}
-                 </div>
+                 {/* الخطوة الثانية: الموظف */}
+                 {modalStep === 2 && (
+                     <div className="space-y-5 animate-in slide-in-from-left duration-300">
+                        {/* عرض الـ UUID للمشاهدة والنسخ */}
+                        <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] text-blue-500 font-bold block mb-1 uppercase tracking-wider flex items-center gap-1">
+                                    <Fingerprint className="w-3 h-3" /> المُعرف الفريد للمركز (Location ID)
+                                </span>
+                                <span className="font-mono text-sm text-blue-900 select-all">{savedLocationId}</span>
+                            </div>
+                            <button onClick={() => copyToClipboard(savedLocationId)} className="p-2 bg-white rounded-lg shadow-sm text-blue-600 hover:bg-blue-100 transition-all">
+                                <Copy className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <input type="text" placeholder="اسم المسؤول الرباعي" value={formData.managerFullName} onChange={e => setFormData({...formData, managerFullName: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        <input type="email" placeholder="البريد الإلكتروني المهني" value={formData.managerEmail} onChange={e => setFormData({...formData, managerEmail: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                        <input type="tel" placeholder="رقم هاتف المسؤول (اختياري)" value={formData.managerPhone} onChange={e => setFormData({...formData, managerPhone: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-100" />
+                     </div>
+                 )}
+
+                 {error && (
+                     <div className="mt-4 bg-red-50 text-red-600 p-4 rounded-2xl flex items-start gap-3 border border-red-100 animate-pulse">
+                         <AlertCircle className="w-5 h-5 flex-shrink-0" /> 
+                         <span className="text-sm font-medium">{error}</span>
+                     </div>
+                 )}
               </div>
               
               <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-4">
-                 <button disabled={isSaving} onClick={handleAddCenter} className="flex-1 bg-[#1e3a8a] text-white h-14 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-blue-800 disabled:opacity-70">
-                    {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Building2 className="w-5 h-5" />}
-                    {isSaving ? "جاري إنشاء السجلات..." : "إتمام التسجيل النهائي"}
-                 </button>
-                 <button disabled={isSaving} onClick={() => setShowAddModal(false)} className="w-32 bg-white text-gray-600 border border-gray-200 h-14 rounded-2xl font-bold hover:bg-gray-100 transition-all">إلغاء</button>
+                 {modalStep === 1 ? (
+                     <>
+                        <button disabled={isSaving} onClick={handleCreateCenter} className="flex-1 bg-[#1e3a8a] text-white h-14 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-blue-800 disabled:opacity-70">
+                            {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : "التالي: إضافة حساب الموظف"}
+                        </button>
+                        <button disabled={isSaving} onClick={closeModal} className="w-32 bg-white text-gray-600 border border-gray-200 h-14 rounded-2xl font-bold hover:bg-gray-100 transition-all">إلغاء</button>
+                     </>
+                 ) : (
+                     <button disabled={isSaving} onClick={handleCreateStaff} className="w-full bg-green-600 text-white h-14 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-green-700 disabled:opacity-70">
+                         {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <UserCircle className="w-5 h-5" />}
+                         {isSaving ? "جاري الإنشاء..." : "إنشاء حساب المدير وإتمام التسجيل"}
+                     </button>
+                 )}
               </div>
            </div>
         </div>

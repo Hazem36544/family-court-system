@@ -20,12 +20,18 @@ export function LoginScreen({ onLogin }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // التقاط أمر التغيير الإجباري لو كان موجود مسبقاً
+  // ✅ التعديل هنا: تنظيف مخصص للمحكمة فقط دون المساس بباقي الأنظمة
   useEffect(() => {
     if (localStorage.getItem('force_change_password') === 'true') {
       setStep('change_password');
       setPassword('');
       setError('يرجى تغيير كلمة المرور المؤقتة قبل الدخول للداشبورد');
+    } else {
+      // مسح مفاتيح المحكمة فقط، وترك مفاتيح الأنظمة الأخرى في حالها
+      localStorage.removeItem('wesal_court_token');
+      localStorage.removeItem('wesal_court_user_data');
+      localStorage.removeItem('wesal_court_user_role');
+      localStorage.removeItem('wesal_court_current_screen');
     }
   }, []);
 
@@ -38,6 +44,12 @@ export function LoginScreen({ onLogin }) {
 
     setIsLoading(true);
     setError('');
+
+    // ✅ تنظيف إضافي لمفاتيح المحكمة قبل محاولة الدخول الجديدة
+    localStorage.removeItem('wesal_court_token');
+    localStorage.removeItem('wesal_court_user_data');
+    localStorage.removeItem('wesal_court_user_role');
+    localStorage.removeItem('force_change_password');
 
     try {
       console.log("Attempting to login as Family Court...");
@@ -54,58 +66,59 @@ export function LoginScreen({ onLogin }) {
         let isTempPassword = false;
         let decodedPayload = {};
 
-        // فك التوكن واستخراج كل البيانات المخبأة بداخله
+        // فك التوكن واستخراج كل البيانات المخبأة بداخله بأمان
         try {
-          // فك تشفير الـ Payload الخاص بـ JWT (الجزء الأوسط)
           const base64Url = response.data.token.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          
+          // إضافة علامات التكملة لتجنب خطأ InvalidCharacterError (atob)
+          while (base64.length % 4 !== 0) {
+            base64 += '=';
+          }
+
           const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
               return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
           }).join(''));
 
           decodedPayload = JSON.parse(jsonPayload);
           
-          if (decodedPayload.tmp_pwd === "True" || decodedPayload.tmp_pwd === true) {
+          if (decodedPayload.tmp_pwd === "True" || decodedPayload.tmp_pwd === true || decodedPayload.tmp_pwd === "true") {
             isTempPassword = true;
           }
         } catch (e) {
           console.error("خطأ في قراءة التوكن", e);
         }
 
-        // حفظ التوكن
-        localStorage.setItem('wesal_token', response.data.token);
-
         if (isTempPassword) {
-          // لو مؤقت: نمنع الدخول ونفتح شاشة التغيير
+          // لو مؤقت: نحفظ التوكن المؤقت باسم المحكمة ونفتح شاشة التغيير
+          localStorage.setItem('wesal_court_token', response.data.token);
           localStorage.setItem('force_change_password', 'true');
           setStep('change_password');
           toast('يجب تأمين حساب المحكمة بكلمة مرور جديدة قبل الدخول', { icon: '🔒', duration: 4000 });
         } else {
-          // لو سليم: نستخرج بيانات اليوزر من التوكن ونحفظها في localStorage
-          
-          // محاولة الحصول على بيانات المستخدم من الـ Response أولاً (إن وجدت)
+          // لو سليم: نستخرج بيانات اليوزر من التوكن ونحفظها بأسماء المحكمة
           let userDataToSave = response.data.user;
 
-          // إذا لم يرسل السيرفر user object، نستخرجه من الـ Claims اللي في التوكن
           if (!userDataToSave && decodedPayload) {
             userDataToSave = {
               id: decodedPayload.nameid || decodedPayload.sub || decodedPayload.jti,
-              email: decodedPayload.email || username, // fallback للـ username اللي دخله
+              email: decodedPayload.email || username, 
               name: decodedPayload.unique_name || decodedPayload.name || 'محكمة الأسرة',
               role: 'court',
-              // بعض الأنظمة تخزن المحافظة في claim خاص، نبحث عنها:
               governorate: decodedPayload.governorate || decodedPayload.location || 'غير محدد'
             };
           }
 
           if (userDataToSave) {
-            localStorage.setItem('wesal_user_data', JSON.stringify(userDataToSave));
+            localStorage.setItem('wesal_court_user_data', JSON.stringify(userDataToSave));
           }
           
-          localStorage.setItem('wesal_user_role', 'court'); // حفظ الصلاحية
+          // حفظ التوكن والصلاحية بالأسماء الجديدة
+          localStorage.setItem('wesal_court_token', response.data.token);
+          localStorage.setItem('wesal_court_user_role', 'court'); 
 
           console.log("Login successful - Role: court", userDataToSave);
-          onLogin('court'); // إرسال صلاحية المحكمة
+          onLogin('court'); // إرسال صلاحية المحكمة للـ App.jsx
         }
       } else {
         setError('فشل تسجيل الدخول: لم يتم استلام رمز الوصول');
@@ -113,7 +126,7 @@ export function LoginScreen({ onLogin }) {
 
     } catch (err) {
       console.error("Login Error:", err);
-      localStorage.removeItem('wesal_token');
+      localStorage.removeItem('wesal_court_token');
 
       if (err.response) {
         const errorMsg = err.response.data?.detail || err.response.data?.title || "";
@@ -168,7 +181,8 @@ export function LoginScreen({ onLogin }) {
 
       toast.success("تم تأمين الحساب بنجاح! يرجى تسجيل الدخول بالبيانات الجديدة.");
       localStorage.removeItem("force_change_password");
-      localStorage.removeItem("wesal_token"); 
+      // مسح التوكن المؤقت الخاص بالمحكمة
+      localStorage.removeItem("wesal_court_token"); 
       
       // الرجوع لشاشة اللوج إن
       setTimeout(() => {

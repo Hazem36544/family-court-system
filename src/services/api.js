@@ -15,11 +15,12 @@ const api = axios.create({
 });
 
 /**
- * 2. Request Interceptor: حقن التوكن
+ * 2. Request Interceptor: حقن التوكن (مخصص لنظام محكمة الأسرة)
  */
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('wesal_token');
+        // ✅ التعديل هنا: سحب توكن المحكمة فقط لمنع التداخل
+        const token = localStorage.getItem('wesal_court_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -60,9 +61,10 @@ export const authAPI = {
     loginParent: (creds) => api.post('/api/auth/parent/sign-in', creds),
     changePassword: (data) => api.patch('/api/users/change-password', data),
 
-    // محاكاة جلب المستخدم الحالي
+    // جلب المستخدم الحالي
     getCurrentUser: () => {
-        const savedUser = localStorage.getItem('wesal_user_data');
+        // ✅ التعديل هنا: اسم الداتا المخصص للمحكمة
+        const savedUser = localStorage.getItem('wesal_court_user_data');
         return Promise.resolve({ data: savedUser ? JSON.parse(savedUser) : {} });
     }
 };
@@ -155,7 +157,7 @@ export const schoolAPI = {
  */
 export const complaintsAPI = {
     create: (data) => api.post('/api/complaints', data),
-    listMyComplaints: (params) => api.get('/api/courts/me/complaints', { params }), // هام: GET لحل مشكلة 405
+    listMyComplaints: (params) => api.get('/api/courts/me/complaints', { params }), 
     updateStatus: (id, data) => api.patch(`/api/complaints/${id}/status`, data),
 };
 
@@ -163,7 +165,6 @@ export const complaintsAPI = {
  * --- [ G. التنبيهات والمخالفات - Obligation Alerts ] ---
  */
 export const alertsAPI = {
-    // هام: تم تغيير الرابط ليطابق Swagger لحل مشكلة 404
     list: (params) => api.get('/api/obligation-alerts', { params }),
     updateStatus: (id, data) => api.patch(`/api/obligation-alerts/${id}/status`, data),
 };
@@ -172,9 +173,9 @@ export const alertsAPI = {
  * --- [ H. طلبات التعديل - Custody Requests ] ---
  */
 export const requestsAPI = {
-    // هام: تم تغيير الرابط ليطابق Swagger لحل مشكلة 404
     list: (params) => api.get('/api/custody-requests', { params }),
-    process: (id, data) => api.patch(`/api/custody-requests/${id}/process`, data),
+    // ✅ تم التصحيح: المسار الصحيح حسب السواجر هو respond
+    process: (id, data) => api.patch(`/api/custody-requests/${id}/respond`, data),
 };
 
 /**

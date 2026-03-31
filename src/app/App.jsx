@@ -17,15 +17,16 @@ import { ComplaintsManagement } from './components/court/ComplaintsManagement';
 import { ViolationsScreen } from './components/court/ViolationsScreen';
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('wesal_token'));
+  // ✅ التعديل: استخدام مفتاح توكن المحكمة
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('wesal_court_token'));
 
-  // Role reading with error protection
+  // ✅ التعديل: قراءة الصلاحية والبيانات من مفاتيح المحكمة المعزولة
   const [userRole, setUserRole] = useState(() => {
     try {
-      const explicitRole = localStorage.getItem('wesal_user_role');
+      const explicitRole = localStorage.getItem('wesal_court_user_role');
       if (explicitRole) return explicitRole;
 
-      const savedData = localStorage.getItem('wesal_user_data');
+      const savedData = localStorage.getItem('wesal_court_user_data');
       return savedData ? JSON.parse(savedData).role : null;
     } catch (e) {
       console.error("Error reading data:", e);
@@ -33,7 +34,8 @@ export default function App() {
     }
   });
 
-  const [currentScreen, setCurrentScreen] = useState(() => localStorage.getItem('current_screen') || 'home');
+  // ✅ التعديل: عزل الشاشة الحالية لمنع التداخل مع الأنظمة الأخرى
+  const [currentScreen, setCurrentScreen] = useState(() => localStorage.getItem('wesal_court_current_screen') || 'home');
   const [screenData, setScreenData] = useState(null);
 
   // --- Login Handler ---
@@ -42,13 +44,14 @@ export default function App() {
     setIsLoggedIn(true);
     setUserRole(role);
 
-    const existingData = localStorage.getItem('wesal_user_data');
+    // ✅ التعديل: حفظ البيانات في مفتاح المحكمة
+    const existingData = localStorage.getItem('wesal_court_user_data');
     let userData = existingData ? JSON.parse(existingData) : {};
     userData.role = role;
-    localStorage.setItem('wesal_user_data', JSON.stringify(userData));
+    localStorage.setItem('wesal_court_user_data', JSON.stringify(userData));
 
     setCurrentScreen('home');
-    localStorage.setItem('current_screen', 'home');
+    localStorage.setItem('wesal_court_current_screen', 'home');
   };
 
   const handleLogout = () => {
@@ -58,10 +61,11 @@ export default function App() {
     setCurrentScreen('home');
     setScreenData(null);
 
-    localStorage.removeItem('wesal_token');
-    localStorage.removeItem('wesal_user_data');
-    localStorage.removeItem('wesal_user_role');
-    localStorage.removeItem('current_screen');
+    // ✅ التعديل: تنظيف شامل لمفاتيح المحكمة فقط
+    localStorage.removeItem('wesal_court_token');
+    localStorage.removeItem('wesal_court_user_data');
+    localStorage.removeItem('wesal_court_user_role');
+    localStorage.removeItem('wesal_court_current_screen');
     localStorage.removeItem('force_change_password');
   };
 
@@ -69,7 +73,7 @@ export default function App() {
     console.log("Navigating to:", screen);
     setCurrentScreen(screen);
     setScreenData(data);
-    localStorage.setItem('current_screen', screen);
+    localStorage.setItem('wesal_court_current_screen', screen);
   };
 
   const handleBack = () => {

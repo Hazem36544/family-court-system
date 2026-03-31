@@ -6,13 +6,13 @@ import {
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { authAPI } from '../../services/api'; // تأكد إن authAPI فيها دالة changePassword
-import api from '../../services/api'; // الاستيراد المباشر لاستخدامه إذا لزم الأمر
+import { authAPI } from '../../services/api'; 
+import api from '../../services/api'; 
 
 export function AccountScreen({ userType, onLogout, onBack }) {
-  // الاعتماد الأساسي على البيانات المحفوظة وقت تسجيل الدخول لعدم وجود مسار GET صريح للمحكمة في السواجر
+  // ✅ التعديل هنا: الاعتماد على بيانات المحكمة المعزولة
   const [profileData, setProfileData] = useState(() => {
-    const savedUser = localStorage.getItem('wesal_user_data');
+    const savedUser = localStorage.getItem('wesal_court_user_data');
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
@@ -31,8 +31,6 @@ export function AccountScreen({ userType, onLogout, onBack }) {
   const [passSuccess, setPassSuccess] = useState('');
 
   useEffect(() => {
-    // محاولة تحديث البيانات لو كان هناك مسار عام لجلب المستخدم الحالي، 
-    // وإلا نكتفي بالبيانات المتاحة من تسجيل الدخول (No fake data)
     const fetchProfile = async () => {
       setLoadingProfile(true);
       try {
@@ -40,7 +38,8 @@ export function AccountScreen({ userType, onLogout, onBack }) {
           const res = await authAPI.getCurrentUser();
           if (res.data) {
             setProfileData(res.data);
-            localStorage.setItem('wesal_user_data', JSON.stringify(res.data));
+            // ✅ التعديل هنا: تحديث بيانات المحكمة المعزولة
+            localStorage.setItem('wesal_court_user_data', JSON.stringify(res.data));
           }
         }
       } catch (error) {
@@ -50,12 +49,10 @@ export function AccountScreen({ userType, onLogout, onBack }) {
       }
     };
     
-    // نستدعيها فقط إذا لم يكن هناك بيانات أو إذا أردنا التحديث
     if (!profileData) fetchProfile();
     else setLoadingProfile(false);
   }, [userType]);
 
-  // دمج البيانات وعرضها بناءً على هيكل Court (حسب Swagger: CreateFamilyCourt.Request)
   const displayInfo = {
     name: profileData?.name || profileData?.fullName || 'محكمة أسرة (غير محدد)',
     email: profileData?.email || 'غير متوفر',
@@ -66,10 +63,11 @@ export function AccountScreen({ userType, onLogout, onBack }) {
 
   // --- Logout Handler ---
   const handleLogoutSafe = () => {
-    localStorage.removeItem('wesal_token');
-    localStorage.removeItem('wesal_user_data');
-    localStorage.removeItem('wesal_user_role');
-    localStorage.removeItem('current_screen');
+    // ✅ التعديل هنا: مسح مفاتيح المحكمة المعزولة فقط
+    localStorage.removeItem('wesal_court_token');
+    localStorage.removeItem('wesal_court_user_data');
+    localStorage.removeItem('wesal_court_user_role');
+    localStorage.removeItem('wesal_court_current_screen');
     onLogout();
   };
 
@@ -89,13 +87,11 @@ export function AccountScreen({ userType, onLogout, onBack }) {
     setPassSuccess('');
 
     try {
-      // متوافق مع Swagger: PATCH /api/users/change-password
       const payload = {
         oldPassword: passwordForm.oldPassword,
         newPassword: passwordForm.newPassword
       };
 
-      // لو authAPI.changePassword مش بتبعت الـ payload بالشكل ده، استخدم api.patch مباشرة
       if (authAPI.changePassword) {
          await authAPI.changePassword(payload);
       } else {
